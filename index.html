@@ -2,7 +2,7 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <title>百萬大歌星 (讀取外部 JSON 版)</title>
+    <title>百萬大歌星 (多重題庫版)</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
@@ -91,14 +91,48 @@
         padding: 0;
       }
 
+      /* --- 題庫選擇列表 --- */
+      .playlist-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 300px;
+        overflow-y: auto;
+        width: 100%;
+        max-width: 400px;
+        margin-bottom: 30px;
+        border: 1px solid #333;
+        padding: 10px;
+        border-radius: 8px;
+        background: #111;
+      }
+      .playlist-item {
+        padding: 15px;
+        border: 1px solid #444;
+        border-radius: 4px;
+        cursor: pointer;
+        color: #ccc;
+        transition: all 0.2s;
+        text-align: center;
+      }
+      .playlist-item:hover {
+        border-color: var(--c-gold);
+        color: white;
+        background: #222;
+      }
+      .playlist-item.selected {
+        background: var(--c-gold);
+        color: black;
+        font-weight: bold;
+        border-color: var(--c-gold);
+      }
+
       /* --- 遊戲畫面 --- */
       .game {
         position: relative;
         width: 100%;
         height: 100%;
       }
-
-      /* Header */
       .header {
         position: absolute;
         top: 0;
@@ -130,21 +164,19 @@
         letter-spacing: 1px;
       }
 
-      /* Title & Lyrics */
-      /* 2. 歌曲標題 - 往上移，稍微變小，作為輔助資訊 */
       .title-display {
         position: absolute;
-        top: 5%; /* 從 10% 改為 5%，拉高 */
+        top: 5%;
         left: 0;
         width: 100%;
         text-align: center;
-        font-size: 3vh; /* 字體稍微縮小 (原本 4vh)，讓主角讓給歌詞 */
+        font-size: 3vh;
         font-weight: bold;
         letter-spacing: 2px;
-        z-index: 20; /* 降低層級，讓它在歌詞"下面" (如果字真的大到重疊，歌詞會蓋過標題) */
+        z-index: 20;
         text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
         display: none;
-        color: #888; /* 顏色調暗，不要太搶眼 */
+        color: #888;
         pointer-events: none;
       }
       .title-display.visible {
@@ -162,26 +194,23 @@
         }
       }
 
-      /* 1. 歌詞區域 - 核心修改：改為全螢幕填滿，絕對置中 */
+      /* 全螢幕歌詞 */
       .lyrics-area {
         position: absolute;
-        inset: 0; /* 等同於 top:0; bottom:0; left:0; right:0; 填滿整個視窗 */
+        inset: 0;
         display: flex;
         flex-direction: column;
-        justify-content: center; /* 垂直置中 */
-        align-items: center; /* 水平置中 */
+        justify-content: center;
+        align-items: center;
         z-index: 30;
-        /* 允許文字超出容器 (針對超長歌詞) */
         overflow: visible;
       }
-
-      /* 歌詞文字 (維持超大字體，稍微加強陰影區隔背景) */
       .lyric-line {
         font-size: 20vmin;
         font-weight: 900;
         line-height: 1;
         color: white;
-        text-shadow: 0 0 60px rgba(255, 204, 0, 0.8); /* 陰影加重，避免跟標題混在一起 */
+        text-shadow: 0 0 60px rgba(255, 204, 0, 0.8);
         white-space: pre-wrap;
         word-break: break-word;
         padding: 0 20px;
@@ -222,7 +251,6 @@
         }
       }
 
-      /* Visualizer & Controls */
       .visualizer {
         position: absolute;
         bottom: 120px;
@@ -307,7 +335,6 @@
         font-weight: bold;
       }
 
-      /* 載入錯誤提示 */
       .error-msg {
         color: #f55;
         margin-top: 10px;
@@ -320,10 +347,13 @@
 
     <section id="screen-start" class="panel">
       <h1 class="panel__title">🎤 百萬大歌星</h1>
-      <p style="color: #aaa; margin-bottom: 10px">讀取外部 playlist.json</p>
-      <p id="load-status" style="color: #888; margin-bottom: 30px">
-        正在讀取檔案...
+      <p style="color: #aaa; margin-bottom: 10px">
+        請選擇題庫 (playlists 資料夾)
       </p>
+
+      <div id="playlist-container" class="playlist-list">
+        <div style="color: #666; text-align: center">正在掃描題庫...</div>
+      </div>
 
       <div style="display: flex; gap: 10px">
         <button
@@ -333,8 +363,9 @@
         >
           開始遊戲
         </button>
-        <button id="btn-reload" class="btn">🔄 重新讀取 JSON</button>
+        <button id="btn-refresh" class="btn">🔄 重新掃描</button>
       </div>
+      <p id="load-status" class="error-msg"></p>
     </section>
 
     <div id="screen-game" class="game hidden">
@@ -417,7 +448,6 @@
     </div>
 
     <script>
-      // --- 引入 Electron 的模組 ---
       const fs = require("fs");
       const path = require("path");
 
@@ -438,6 +468,7 @@
         config: { startTime: 0, endTime: 0 },
         isTitleVisible: false,
         isPlaying: false,
+        selectedFile: null, // 紀錄目前選中的檔案
       };
 
       let syncTimer = null;
@@ -449,6 +480,7 @@
         },
         audio: document.getElementById("audioPlayer"),
         status: document.getElementById("load-status"),
+        playlistList: document.getElementById("playlist-container"),
         displays: {
           round: document.getElementById("display-round"),
           status: document.getElementById("display-status"),
@@ -462,7 +494,7 @@
         },
         btns: {
           start: document.getElementById("btn-start-game"),
-          reload: document.getElementById("btn-reload"),
+          refresh: document.getElementById("btn-refresh"),
           prev: document.getElementById("btn-prev"),
           next: document.getElementById("btn-next"),
           toggle: document.getElementById("btn-toggle"),
@@ -472,56 +504,98 @@
         },
       };
 
-      // --- 核心修改：讀取 JSON 檔案 ---
-      function loadPlaylistFromFile() {
-        // 檔案路徑：跟 index.html 在同一層的 playlist.json
-        const jsonPath = path.join(__dirname, "playlist.json");
-
-        els.status.textContent = "正在讀取 playlist.json ...";
-        els.status.className = ""; // 清除錯誤樣式
+      // --- 核心修改：掃描 playlists 資料夾 ---
+      function scanPlaylists() {
+        const playlistDir = path.join(__dirname, "playlists");
+        els.playlistList.innerHTML = ""; // 清空列表
+        els.status.textContent = "";
+        state.selectedFile = null;
         els.btns.start.classList.add("btn--disabled");
 
-        if (fs.existsSync(jsonPath)) {
+        // 檢查資料夾是否存在
+        if (!fs.existsSync(playlistDir)) {
+          // 如果不存在，自動建立一個，並提示使用者
           try {
-            const data = fs.readFileSync(jsonPath, "utf-8");
-            const pl = JSON.parse(data);
-
-            if (Array.isArray(pl) && pl.length > 0) {
-              state.playlist = pl;
-              els.status.textContent = `✅ 成功載入 ${pl.length} 首歌曲`;
-              els.status.style.color = "#4c4";
-              els.btns.start.classList.remove("btn--disabled");
-            } else {
-              throw new Error("格式錯誤：必須是包含歌曲的陣列");
-            }
+            fs.mkdirSync(playlistDir);
+            els.playlistList.innerHTML =
+              '<div style="color:#f55; padding:10px; text-align:center;">找不到 playlists 資料夾，已為您自動建立。<br>請將 JSON 檔案放入該資料夾後按重新掃描。</div>';
           } catch (e) {
-            els.status.textContent = "❌ 讀取失敗: " + e.message;
-            els.status.className = "error-msg";
+            els.status.textContent = "無法建立資料夾：" + e.message;
           }
-        } else {
-          els.status.textContent =
-            "⚠️ 找不到檔案：請在同一資料夾建立 playlist.json";
-          els.status.className = "error-msg";
+          return;
+        }
+
+        // 讀取檔案
+        try {
+          const files = fs
+            .readdirSync(playlistDir)
+            .filter((file) => file.endsWith(".json"));
+
+          if (files.length === 0) {
+            els.playlistList.innerHTML =
+              '<div style="color:#888; padding:10px; text-align:center;">資料夾是空的 (需放入 .json)</div>';
+            return;
+          }
+
+          files.forEach((file) => {
+            const div = document.createElement("div");
+            div.className = "playlist-item";
+            // 移除 .json 副檔名顯示，比較美觀
+            div.textContent = file.replace(".json", "");
+            div.onclick = () => selectPlaylistFile(file, div);
+            els.playlistList.appendChild(div);
+          });
+        } catch (e) {
+          els.status.textContent = "掃描失敗：" + e.message;
+        }
+      }
+
+      // 使用者點選某個題庫
+      function selectPlaylistFile(filename, divElement) {
+        state.selectedFile = filename;
+
+        // UI 更新：移除其他選中狀態，加上當前的
+        const items = document.querySelectorAll(".playlist-item");
+        items.forEach((item) => item.classList.remove("selected"));
+        divElement.classList.add("selected");
+
+        // 啟用開始按鈕
+        els.btns.start.classList.remove("btn--disabled");
+      }
+
+      // 讀取選中的檔案內容
+      function loadSelectedPlaylist() {
+        if (!state.selectedFile) return;
+
+        const filePath = path.join(__dirname, "playlists", state.selectedFile);
+
+        try {
+          const data = fs.readFileSync(filePath, "utf-8");
+          const pl = JSON.parse(data);
+
+          if (Array.isArray(pl) && pl.length > 0) {
+            state.playlist = pl;
+            switchScreen("game");
+            loadSong(0);
+          } else {
+            throw new Error("格式錯誤：必須是包含歌曲的陣列");
+          }
+        } catch (e) {
+          alert("讀取題庫失敗: " + e.message);
         }
       }
 
       function init() {
-        loadPlaylistFromFile();
+        scanPlaylists();
         bindEvents();
       }
 
       function bindEvents() {
-        // 重新讀取按鈕
-        els.btns.reload.addEventListener("click", () => {
-          loadPlaylistFromFile();
-        });
+        els.btns.refresh.addEventListener("click", scanPlaylists);
 
-        els.btns.start.addEventListener("click", () => {
-          if (state.playlist.length > 0) {
-            switchScreen("game");
-            loadSong(0);
-          }
-        });
+        // 修改開始按鈕邏輯
+        els.btns.start.addEventListener("click", loadSelectedPlaylist);
+
         els.btns.exit.addEventListener("click", () => {
           stopSync();
           els.audio.pause();
@@ -598,7 +672,6 @@
         state.currentTrackIndex = index;
         const song = state.playlist[index];
 
-        // 路徑處理
         let songUrl = song.url;
         if (!songUrl && song.filename) songUrl = "./songs/" + song.filename;
 

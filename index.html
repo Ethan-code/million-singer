@@ -1,252 +1,876 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <title>百萬大歌星 (Electron版)</title>
-    <script defer src="./alpine.js"></script>
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval';">
-    
+  <head>
+    <meta charset="UTF-8" />
+    <title>百萬大歌星 (Electron 原生版)</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
+    />
+
     <style>
-        /* (保留原本的所有 CSS 樣式，這裡省略以節省篇幅) */
-        :root { --c-gold: #ffcc00; --c-bg: #000; --c-panel: #222; --c-text: #fff; --c-border: #444; --c-danger: #c00; }
-        body { margin: 0; background: var(--c-bg); color: var(--c-text); height: 100vh; width: 100vw; overflow: hidden; font-family: system-ui, sans-serif; position: fixed; display: flex; justify-content: center; align-items: center; }
-        .panel { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .panel__box { background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 8px; padding: 20px; width: 90%; max-width: 800px; display: flex; flex-direction: column; max-height: 90vh; }
-        .panel__title { font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 900; color: var(--c-gold); margin: 0 0 20px 0; }
-        .panel__textarea { width: 100%; background: #111; color: #a6e22e; border: 1px solid #555; padding: 10px; font-family: monospace; font-size: 14px; border-radius: 4px; margin-bottom: 15px; resize: vertical; }
-        .btn { padding: 12px 24px; border-radius: 50px; font-weight: bold; cursor: pointer; border: 1px solid var(--c-border); background: var(--c-panel); color: #aaa; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; user-select: none; }
-        .btn:hover { background: #444; color: #fff; transform: translateY(-2px); }
-        .btn--primary { background: var(--c-gold); color: black; border: none; box-shadow: 0 0 15px rgba(255,204,0,0.4); }
-        .btn--disabled { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
-        .btn--icon { width: 48px; padding: 0; }
-        .game { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .header { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; z-index: 50; pointer-events: none; }
-        .header__round { font-size: 1.5rem; color: var(--c-gold); border: 2px solid var(--c-gold); padding: 5px 20px; border-radius: 50px; cursor: pointer; background: rgba(0,0,0,0.5); pointer-events: auto; }
-        .header__status { font-size: 1rem; color: #888; font-weight: bold; }
-        .lyrics-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95%; max-width: 1400px; text-align: center; z-index: 10; display: flex; flex-direction: column; justify-content: center; min-height: 20vh; }
-        .lyric-line { font-size: 10vmin; font-weight: 900; line-height: 1.4; color: white; text-shadow: 0 0 30px rgba(255, 204, 0, 0.3); white-space: pre-wrap; word-break: break-word; }
-        @media (min-width: 1024px) { .lyric-line { font-size: 12vh; } }
-        .magic-word { display: inline-block; position: relative; padding: 0 0.2em; vertical-align: bottom; color: var(--c-gold); text-shadow: 0 0 20px rgba(255, 204, 0, 0.8); }
-        .magic-word.is-masked { color: transparent; text-shadow: none; }
-        .magic-word.is-masked::after { content: ''; position: absolute; inset: 0; background: #333; border-bottom: 0.1em solid var(--c-gold); border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
-        .magic-word.is-revealing::after { content: ''; position: absolute; inset: 0; background: #333; border-bottom: 0.1em solid var(--c-gold); border-radius: 4px; animation: maskPopOut 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        @keyframes maskPopOut { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; visibility: hidden; } }
-        .title-display { position: absolute; top: 15%; width: 90%; text-align: center; font-size: 5vh; font-weight: bold; letter-spacing: 2px; z-index: 20; text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); display: none; }
-        .title-display[data-visible="true"] { display: block; animation: fadeIn 0.5s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .visualizer { position: absolute; top: 25%; display: flex; gap: 8px; align-items: flex-end; height: 60px; opacity: 0.2; transition: opacity 0.5s; z-index: 10; }
-        .visualizer[data-active="true"] { opacity: 1; }
-        .visualizer__bar { width: 12px; background: var(--c-gold); border-radius: 4px; }
-        .visualizer[data-playing="true"] .visualizer__bar { animation: bounce 1s infinite ease-in-out; }
-        @keyframes bounce { 0%, 100% { transform: scaleY(0.3); opacity: 0.5; } 50% { transform: scaleY(1); opacity: 1; } }
-        .controls { position: absolute; bottom: 30px; display: flex; gap: 10px; z-index: 40; padding: 20px; opacity: 0; transition: opacity 0.3s; }
-        .controls:hover, .controls:active { opacity: 1; }
-        .menu { position: absolute; top: 75px; left: 30px; background: rgba(34,34,34,0.98); border: 2px solid var(--c-gold); border-radius: 8px; max-height: 50vh; overflow-y: auto; z-index: 101; display: none; min-width: 200px; }
-        .menu[x-show="true"] { display: block; }
-        .menu__item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid #444; color: #ccc; }
-        .menu__item:hover, .menu__item--active { background: var(--c-gold); color: black; font-weight: bold; }
-        .hidden { display: none; }
+      /* --- 基礎變數 --- */
+      :root {
+        --c-gold: #ffcc00;
+        --c-bg: #000;
+        --c-panel: #222;
+        --c-text: #fff;
+        --c-border: #444;
+        --c-danger: #c00;
+      }
+
+      body {
+        margin: 0;
+        background: var(--c-bg);
+        color: var(--c-text);
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        font-family: system-ui, sans-serif;
+        position: fixed;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      /* --- 隱藏/顯示控制 (核心) --- */
+      .hidden {
+        display: none !important;
+      }
+
+      /* --- 面板 --- */
+      .panel {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.95);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .panel__box {
+        background: var(--c-panel);
+        border: 1px solid var(--c-border);
+        border-radius: 8px;
+        padding: 20px;
+        width: 90%;
+        max-width: 800px;
+        display: flex;
+        flex-direction: column;
+        max-height: 90vh;
+      }
+      .panel__title {
+        font-size: clamp(2.5rem, 8vw, 4rem);
+        font-weight: 900;
+        color: var(--c-gold);
+        margin: 0 0 20px 0;
+      }
+      .panel__textarea {
+        width: 100%;
+        background: #111;
+        color: #a6e22e;
+        border: 1px solid #555;
+        padding: 10px;
+        font-family: monospace;
+        font-size: 14px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        resize: vertical;
+      }
+
+      /* --- 按鈕 --- */
+      .btn {
+        padding: 12px 24px;
+        border-radius: 50px;
+        font-weight: bold;
+        cursor: pointer;
+        border: 1px solid var(--c-border);
+        background: var(--c-panel);
+        color: #aaa;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+      }
+      .btn:hover {
+        background: #444;
+        color: #fff;
+        transform: translateY(-2px);
+      }
+      .btn--primary {
+        background: var(--c-gold);
+        color: black;
+        border: none;
+        box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
+      }
+      .btn--disabled {
+        opacity: 0.3;
+        pointer-events: none;
+        filter: grayscale(1);
+      }
+      .btn--icon {
+        width: 48px;
+        padding: 0;
+      }
+
+      /* --- 遊戲區 --- */
+      .game {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .header {
+        position: absolute;
+        top: 20px;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 30px;
+        z-index: 50;
+        pointer-events: none;
+      }
+      .header__round {
+        font-size: 1.5rem;
+        color: var(--c-gold);
+        border: 2px solid var(--c-gold);
+        padding: 5px 20px;
+        border-radius: 50px;
+        cursor: pointer;
+        background: rgba(0, 0, 0, 0.5);
+        pointer-events: auto;
+      }
+      .header__status {
+        font-size: 1rem;
+        color: #888;
+        font-weight: bold;
+      }
+
+      /* --- 歌詞與遮罩 --- */
+      .lyrics-area {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 95%;
+        max-width: 1400px;
+        text-align: center;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 20vh;
+      }
+      .lyric-line {
+        font-size: 10vmin;
+        font-weight: 900;
+        line-height: 1.4;
+        color: white;
+        text-shadow: 0 0 30px rgba(255, 204, 0, 0.3);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      @media (min-width: 1024px) {
+        .lyric-line {
+          font-size: 12vh;
+        }
+      }
+
+      /* 答案樣式 */
+      .magic-word {
+        display: inline-block;
+        position: relative;
+        padding: 0 0.2em;
+        vertical-align: bottom;
+        color: var(--c-gold);
+        text-shadow: 0 0 20px rgba(255, 204, 0, 0.8);
+      }
+      .magic-word.is-masked {
+        color: transparent;
+        text-shadow: none;
+      }
+      .magic-word.is-masked::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: #333;
+        border-bottom: 0.1em solid var(--c-gold);
+        border-radius: 4px;
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+      }
+
+      /* 揭曉動畫 */
+      .magic-word.is-revealing::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: #333;
+        border-bottom: 0.1em solid var(--c-gold);
+        border-radius: 4px;
+        animation: maskPopOut 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)
+          forwards;
+      }
+      @keyframes maskPopOut {
+        0% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1.5);
+          opacity: 0;
+          visibility: hidden;
+        }
+      }
+
+      /* 標題 */
+      .title-display {
+        position: absolute;
+        top: 15%;
+        width: 90%;
+        text-align: center;
+        font-size: 5vh;
+        font-weight: bold;
+        letter-spacing: 2px;
+        z-index: 20;
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        display: none;
+      }
+      .title-display.visible {
+        display: block;
+        animation: fadeIn 0.5s;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* 視覺化 */
+      .visualizer {
+        position: absolute;
+        top: 25%;
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+        height: 60px;
+        opacity: 0.2;
+        transition: opacity 0.5s;
+        z-index: 10;
+      }
+      .visualizer.active {
+        opacity: 1;
+      }
+      .visualizer__bar {
+        width: 12px;
+        background: var(--c-gold);
+        border-radius: 4px;
+      }
+      .visualizer.playing .visualizer__bar {
+        animation: bounce 1s infinite ease-in-out;
+      }
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: scaleY(0.3);
+          opacity: 0.5;
+        }
+        50% {
+          transform: scaleY(1);
+          opacity: 1;
+        }
+      }
+
+      /* 控制列與選單 */
+      .controls {
+        position: absolute;
+        bottom: 30px;
+        display: flex;
+        gap: 10px;
+        z-index: 40;
+        padding: 20px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .controls:hover,
+      .controls:active {
+        opacity: 1;
+      }
+      .menu {
+        position: absolute;
+        top: 75px;
+        left: 30px;
+        background: rgba(34, 34, 34, 0.98);
+        border: 2px solid var(--c-gold);
+        border-radius: 8px;
+        max-height: 50vh;
+        overflow-y: auto;
+        z-index: 101;
+        display: none;
+        min-width: 200px;
+      }
+      .menu.visible {
+        display: block;
+      }
+      .menu__item {
+        padding: 12px 20px;
+        cursor: pointer;
+        border-bottom: 1px solid #444;
+        color: #ccc;
+      }
+      .menu__item:hover,
+      .menu__item.active {
+        background: var(--c-gold);
+        color: black;
+        font-weight: bold;
+      }
     </style>
-</head>
-<body x-data="gameApp()" x-init="init()" @keydown.window="handleKeyDown($event)">
+  </head>
+  <body>
+    <audio id="audioPlayer" preload="auto" style="display: none"></audio>
 
-    <audio x-ref="audioPlayer" @play="onMediaPlay" @pause="onMediaPause" @ended="onMediaEnded" preload="auto" style="display:none;"></audio>
-
-    <section x-show="appMode === 'START'" class="panel">
-        <h1 class="panel__title">🎤 百萬大歌星</h1>
-        <p style="color:#aaa; margin-bottom:30px;">Electron 單機版 v1.0</p>
-        <button @click="startGame()" :class="{'btn--disabled': playlist.length === 0}" class="btn btn--primary" style="font-size:1.5rem; margin-bottom:20px;">開始遊戲</button>
-        <button @click="appMode = 'SETUP'" class="btn">⚙️ 設定題庫</button>
+    <section id="screen-start" class="panel">
+      <h1 class="panel__title">🎤 百萬大歌星</h1>
+      <p style="color: #aaa; margin-bottom: 30px">原生 JS 版 v2.0</p>
+      <button
+        id="btn-start-game"
+        class="btn btn--primary"
+        style="font-size: 1.5rem; margin-bottom: 20px"
+      >
+        開始遊戲
+      </button>
+      <button id="btn-to-setup" class="btn">⚙️ 設定題庫</button>
     </section>
 
-    <section x-show="appMode === 'SETUP'" class="panel">
-        <div class="panel__box">
-            <h2 style="color:var(--c-gold); font-weight:900; margin:0 0 20px 0; text-align:center; font-size:2rem;">⚙️ 題庫設定</h2>
-            <div style="color:#888; margin-bottom:10px; font-size:0.9rem;">
-                請編輯下方 JSON，路徑可直接使用 "./songs/檔名.mp3"
-            </div>
-            <textarea x-ref="playlistInput" rows="15" class="panel__textarea" x-model="playlistRaw"></textarea>
-            <div style="display:flex; gap:10px;">
-                <button @click="savePlaylist()" class="btn btn--primary" style="flex:1;">儲存並返回</button>
-                <button @click="appMode = 'START'" class="btn" style="flex:1;">取消</button>
-            </div>
+    <section id="screen-setup" class="panel hidden">
+      <div class="panel__box">
+        <h2
+          style="
+            color: var(--c-gold);
+            font-weight: 900;
+            margin: 0 0 20px 0;
+            text-align: center;
+            font-size: 2rem;
+          "
+        >
+          ⚙️ 題庫設定
+        </h2>
+        <div style="color: #888; margin-bottom: 10px; font-size: 0.9rem">
+          請編輯下方 JSON，路徑可直接使用 "./songs/檔名.mp3"
         </div>
+        <textarea
+          id="input-playlist"
+          rows="15"
+          class="panel__textarea"
+        ></textarea>
+        <div style="display: flex; gap: 10px">
+          <button
+            id="btn-save-playlist"
+            class="btn btn--primary"
+            style="flex: 1"
+          >
+            儲存並返回
+          </button>
+          <button id="btn-cancel-setup" class="btn" style="flex: 1">
+            取消
+          </button>
+        </div>
+      </div>
     </section>
 
-    <div x-show="appMode === 'GAME'" class="game">
-        <header class="header">
-            <div class="header__round" @click.stop="showMenu = !showMenu" x-text="`ROUND ${currentTrackIndex + 1}`"></div>
-            <div class="header__status" x-text="statusText"></div>
-        </header>
-        <aside class="menu" x-show="showMenu" @click.outside="showMenu = false" x-transition>
-            <template x-for="(song, idx) in playlist" :key="idx">
-                <div class="menu__item" :class="{'menu__item--active': currentTrackIndex === idx}" x-text="`Round ${idx + 1}`" @click="loadSong(idx); showMenu = false;"></div>
-            </template>
-        </aside>
-        <div class="title-display" :data-visible="isTitleVisible" x-text="currentTitle"></div>
-        <div class="visualizer" :data-active="mediaState === 'PLAYING' || roundState === 'LOCKED'" :data-playing="mediaState === 'PLAYING'">
-            <div class="visualizer__bar" style="height:30px; animation-duration:0.8s"></div>
-            <div class="visualizer__bar" style="height:50px; animation-duration:1.2s"></div>
-            <div class="visualizer__bar" style="height:70px; animation-duration:0.5s"></div>
-            <div class="visualizer__bar" style="height:40px; animation-duration:1.0s"></div>
-            <div class="visualizer__bar" style="height:30px; animation-duration:0.7s"></div>
+    <div id="screen-game" class="game hidden">
+      <header class="header">
+        <div id="display-round" class="header__round">ROUND 1</div>
+        <div id="display-status" class="header__status">Ready</div>
+      </header>
+
+      <aside id="menu-container" class="menu"></aside>
+
+      <div id="display-title" class="title-display"></div>
+
+      <div id="visualizer" class="visualizer">
+        <div
+          class="visualizer__bar"
+          style="height: 30px; animation-duration: 0.8s"
+        ></div>
+        <div
+          class="visualizer__bar"
+          style="height: 50px; animation-duration: 1.2s"
+        ></div>
+        <div
+          class="visualizer__bar"
+          style="height: 70px; animation-duration: 0.5s"
+        ></div>
+        <div
+          class="visualizer__bar"
+          style="height: 40px; animation-duration: 1s"
+        ></div>
+        <div
+          class="visualizer__bar"
+          style="height: 30px; animation-duration: 0.7s"
+        ></div>
+      </div>
+
+      <div class="lyrics-area">
+        <div
+          id="idle-msg"
+          style="display: flex; flex-direction: column; align-items: center"
+        >
+          <p
+            id="idle-round-text"
+            style="
+              color: var(--c-gold);
+              font-size: 5vh;
+              font-weight: bold;
+              margin-bottom: 10px;
+            "
+          ></p>
+          <span style="color: #888; font-size: 3vh"
+            >Space: 播放 / Enter: 揭曉</span
+          >
         </div>
-        <div id="lyrics-area" class="lyrics-area">
-            <div x-show="roundState === 'IDLE'" style="display:flex; flex-direction:column; align-items:center;">
-                <p style="color:var(--c-gold); font-size:5vh; font-weight:bold; margin-bottom:10px;" x-text="`ROUND ${currentTrackIndex + 1}`"></p>
-                <span style="color:#888; font-size:3vh;">Space: 播放 / Enter: 揭曉</span>
-            </div>
-            <div x-show="roundState !== 'IDLE' && currentIndex !== -1" class="w-full">
-                <div class="lyric-line" x-html="currentLineHTML"></div>
-            </div>
+        <div id="lyric-container" class="w-full hidden">
+          <div id="lyric-line" class="lyric-line"></div>
         </div>
-        <nav class="controls">
-            <button class="btn btn--icon" @click="prevSong()">⏮</button>
-            <button class="btn" @click="togglePlay()" style="min-width: 120px;">
-                <span x-text="mediaState === 'PLAYING' ? '⏸ 暫停' : '⏯ 播放'"></span>
-            </button>
-            <button class="btn btn--primary" :class="{'btn--disabled': roundState !== 'LOCKED'}" @click="reveal()">✨ 答對</button>
-            <button class="btn" @click="resetRound()">🔄 重來</button>
-            <button class="btn btn--icon" @click="nextSong()">⏭</button>
-            <button class="btn btn--icon" style="margin-left:20px; color:var(--c-danger); border-color:var(--c-danger);" @click="exitGame()">🏠</button>
-        </nav>
+      </div>
+
+      <nav class="controls">
+        <button id="btn-prev" class="btn btn--icon">⏮</button>
+        <button id="btn-toggle" class="btn" style="min-width: 120px">
+          ⏯ 播放
+        </button>
+        <button id="btn-reveal" class="btn btn--primary btn--disabled">
+          ✨ 答對
+        </button>
+        <button id="btn-reset" class="btn">🔄 重來</button>
+        <button id="btn-next" class="btn btn--icon">⏭</button>
+        <button
+          id="btn-exit"
+          class="btn btn--icon"
+          style="
+            margin-left: 20px;
+            color: var(--c-danger);
+            border-color: var(--c-danger);
+          "
+        >
+          🏠
+        </button>
+      </nav>
     </div>
 
     <script>
-        const AppMode = { START: 'START', SETUP: 'SETUP', GAME: 'GAME' };
-        const RoundState = { IDLE: 'IDLE', FLOW: 'FLOW', LOCKED: 'LOCKED', REVEALING: 'REVEALING', FINISHED: 'FINISHED' };
-        const MediaState = { PLAYING: 'PLAYING', PAUSED: 'PAUSED', WAITING: 'WAITING' };
+      // --- 1. 全域變數與常數 ---
+      const RoundState = {
+        IDLE: "IDLE",
+        FLOW: "FLOW",
+        LOCKED: "LOCKED",
+        REVEALING: "REVEALING",
+        FINISHED: "FINISHED",
+      };
 
-        // Electron 允許直接讀取相對路徑，所以這裡改回使用 url
-        const DEFAULT_PLAYLIST = JSON.stringify([
-            {
-                "title": "Electron 測試曲",
-                "url": "./songs/demo.mp3", 
-                "startTime": 0,
-                "endTime": 0,
-                "lrc": ["[00:01.00]歡迎來到*Electron*", "[00:03.00]這裡可以直接讀取*檔案*"]
-            }
-        ], null, 2);
+      const DEFAULT_PLAYLIST = JSON.stringify(
+        [
+          {
+            title: "原生JS測試",
+            url: "./songs/demo.mp3",
+            startTime: 0,
+            endTime: 0,
+            lrc: ["[00:01.00]再見了*Alpine*", "[00:03.00]原生JS才是*王道*"],
+          },
+        ],
+        null,
+        2
+      );
 
-        let syncTimer = null;
+      let state = {
+        playlist: [],
+        currentTrackIndex: 0,
+        roundState: RoundState.IDLE,
+        currentIndex: -1, // 歌詞行數
+        lyricsData: [],
+        config: { startTime: 0, endTime: 0 },
+        isTitleVisible: false,
+        isPlaying: false,
+      };
 
-        function gameApp() {
-            return {
-                appMode: AppMode.START,
-                roundState: RoundState.IDLE,
-                mediaState: MediaState.PAUSED,
-                playlistRaw: DEFAULT_PLAYLIST,
-                playlist: [],
-                currentTrackIndex: 0,
-                lyricsData: [],
-                currentIndex: -1,
-                showMenu: false,
-                config: { startTime: 0, endTime: 0 },
-                isTitleVisible: false,
+      let syncTimer = null;
 
-                get statusText() {
-                    if (this.roundState === RoundState.LOCKED) return 'Waiting...';
-                    if (this.roundState === RoundState.REVEALING) return 'Correct!';
-                    if (this.roundState === RoundState.FINISHED) return 'Finished';
-                    if (this.roundState === RoundState.IDLE) return 'Ready';
-                    return '';
-                },
-                get currentTitle() { return this.playlist[this.currentTrackIndex]?.title || ''; },
-                get currentLineHTML() {
-                    if (this.currentIndex === -1 || !this.lyricsData[this.currentIndex]) return '';
-                    const line = this.lyricsData[this.currentIndex];
-                    if (line.hasMask) {
-                        let stateClass = 'is-masked';
-                        if (line.isAnswered) stateClass = (this.roundState === RoundState.REVEALING) ? 'is-revealing' : ''; 
-                        return line.rawText.replace(/\*(.*?)\*/g, `<span class="magic-word ${stateClass}">$1</span>`);
-                    }
-                    return line.rawText;
-                },
+      // --- 2. DOM 元素快取 ---
+      const els = {
+        screens: {
+          start: document.getElementById("screen-start"),
+          setup: document.getElementById("screen-setup"),
+          game: document.getElementById("screen-game"),
+        },
+        audio: document.getElementById("audioPlayer"),
+        inputs: {
+          playlist: document.getElementById("input-playlist"),
+        },
+        displays: {
+          round: document.getElementById("display-round"),
+          status: document.getElementById("display-status"),
+          title: document.getElementById("display-title"),
+          idleMsg: document.getElementById("idle-msg"),
+          idleRound: document.getElementById("idle-round-text"),
+          lyricContainer: document.getElementById("lyric-container"),
+          lyricLine: document.getElementById("lyric-line"),
+          menu: document.getElementById("menu-container"),
+          visualizer: document.getElementById("visualizer"),
+        },
+        btns: {
+          start: document.getElementById("btn-start-game"),
+          toSetup: document.getElementById("btn-to-setup"),
+          save: document.getElementById("btn-save-playlist"),
+          cancel: document.getElementById("btn-cancel-setup"),
+          prev: document.getElementById("btn-prev"),
+          next: document.getElementById("btn-next"),
+          toggle: document.getElementById("btn-toggle"),
+          reveal: document.getElementById("btn-reveal"),
+          reset: document.getElementById("btn-reset"),
+          exit: document.getElementById("btn-exit"),
+        },
+      };
 
-                init() {
-                    const setHeight = () => document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
-                    window.addEventListener('resize', setHeight); setHeight();
-                    const saved = localStorage.getItem('karoke_playlist_electron');
-                    if(saved) this.playlistRaw = saved;
-                    this.$nextTick(() => { this.savePlaylist(false); this.$refs.playlistInput.value = this.playlistRaw.trim(); });
-                },
+      // --- 3. 初始化 ---
+      function init() {
+        // 讀取設定
+        const saved = localStorage.getItem("karoke_playlist_js");
+        els.inputs.playlist.value = saved || DEFAULT_PLAYLIST;
 
-                savePlaylist(alertOnError = true) {
-                    try {
-                        const pl = JSON.parse(this.playlistRaw);
-                        if (Array.isArray(pl) && pl.length > 0) {
-                            this.playlist = pl;
-                            localStorage.setItem('karoke_playlist_electron', this.playlistRaw);
-                            this.appMode = AppMode.START;
-                        } else if (alertOnError) { alert("JSON 格式錯誤"); }
-                    } catch(e) { if (alertOnError) alert("JSON 解析失敗"); }
-                },
-
-                startGame() {
-                    if (this.playlist.length === 0) return;
-                    this.appMode = AppMode.GAME;
-                    this.loadSong(0);
-                },
-
-                loadSong(index) {
-                    if (index < 0 || index >= this.playlist.length) return;
-                    this.currentTrackIndex = index;
-                    const song = this.playlist[index];
-                    this.config = { startTime: song.startTime || 0, endTime: song.endTime || 0 };
-                    this.lyricsData = this.parseLRC(song.lrc);
-                    this.resetStateToIdle();
-
-                    const player = this.$refs.audioPlayer;
-                    player.onerror = (e) => { console.error("Error", e); alert("找不到檔案：" + song.url); };
-                    
-                    // Electron 魔法：直接設定相對路徑
-                    player.src = song.url; 
-                    player.currentTime = this.config.startTime;
-                    player.load();
-                },
-
-                resetStateToIdle() {
-                    this.roundState = RoundState.IDLE;
-                    this.currentIndex = -1;
-                    this.isTitleVisible = false;
-                    this.stopSync();
-                    this.$refs.audioPlayer.pause();
-                    this.mediaState = MediaState.PAUSED;
-                },
-                resetRound() { this.lyricsData.forEach(l => l.isAnswered = false); this.loadSong(this.currentTrackIndex); },
-                onMediaPlay() { this.mediaState = MediaState.PLAYING; if (this.roundState === RoundState.IDLE) this.roundState = RoundState.FLOW; this.startSync(); },
-                onMediaPause() { this.mediaState = MediaState.PAUSED; this.stopSync(); },
-                onMediaEnded() { this.mediaState = MediaState.PAUSED; this.roundState = RoundState.FINISHED; this.stopSync(); },
-                togglePlay() { const player = this.$refs.audioPlayer; if (this.roundState === RoundState.LOCKED) return; player.paused ? player.play() : player.pause(); },
-                
-                startSync() {
-                    if (syncTimer) clearInterval(syncTimer);
-                    const player = this.$refs.audioPlayer;
-                    syncTimer = setInterval(() => {
-                        if (this.roundState === RoundState.LOCKED || player.paused) return;
-                        const t = player.currentTime;
-                        if (this.config.endTime > 0 && t >= this.config.endTime) { player.pause(); this.roundState = RoundState.FINISHED; return; }
-                        let activeIdx = -1;
-                        for (let i = 0; i < this.lyricsData.length; i++) { if (t >= this.lyricsData[i].time) activeIdx = i; else break; }
-                        if (activeIdx !== -1 && activeIdx !== this.currentIndex) {
-                            const target = this.lyricsData[activeIdx];
-                            if (target.hasMask && !target.isAnswered) { this.currentIndex = activeIdx; this.roundState = RoundState.LOCKED; player.pause(); return; }
-                            this.currentIndex = activeIdx;
-                        }
-                    }, 50);
-                },
-                stopSync() { if (syncTimer) clearInterval(syncTimer); },
-                reveal() { if (this.roundState !== RoundState.LOCKED) return; this.lyricsData[this.currentIndex].isAnswered = true; this.roundState = RoundState.REVEALING; this.isTitleVisible = true; this.$refs.audioPlayer.play(); setTimeout(() => { if (this.roundState === RoundState.REVEALING) this.roundState = RoundState.FLOW; }, 500); },
-                parseLRC(lrc) { if (!lrc) return []; let lines = Array.isArray(lrc) ? lrc : lrc.split('\n'); return lines.map(line => { const match = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/.exec(line); if (!match) return null; const time = parseInt(match[1])*60 + parseInt(match[2]) + parseInt(match[3].padEnd(3,"0"))/1000; const rawText = line.replace(/\[.*?\]/, "").trim(); return { time, rawText, hasMask: rawText.includes("*"), isAnswered: false }; }).filter(x => x).sort((a,b) => a.time - b.time); },
-                nextSong() { if (this.currentTrackIndex < this.playlist.length - 1) this.loadSong(this.currentTrackIndex + 1); },
-                prevSong() { if (this.currentTrackIndex > 0) this.loadSong(this.currentTrackIndex - 1); },
-                exitGame() { this.resetStateToIdle(); this.appMode = AppMode.START; },
-                handleKeyDown(e) {
-                    if (this.appMode !== AppMode.GAME) return;
-                    switch(e.code) { case 'Space': e.preventDefault(); this.togglePlay(); break; case 'Enter': e.preventDefault(); this.reveal(); break; case 'KeyR': this.resetRound(); break; case 'ArrowRight': this.nextSong(); break; case 'ArrowLeft': this.prevSong(); break; }
-                }
-            }
+        try {
+          state.playlist = JSON.parse(els.inputs.playlist.value);
+        } catch (e) {
+          console.error("JSON Error");
         }
+
+        bindEvents();
+        updateUI(); // 確保按鈕狀態正確
+      }
+
+      function bindEvents() {
+        // 切換畫面邏輯
+        els.btns.toSetup.addEventListener("click", () => switchScreen("setup"));
+        els.btns.cancel.addEventListener("click", () => switchScreen("start"));
+
+        els.btns.save.addEventListener("click", () => {
+          try {
+            const val = els.inputs.playlist.value;
+            const pl = JSON.parse(val);
+            if (Array.isArray(pl) && pl.length > 0) {
+              state.playlist = pl;
+              localStorage.setItem("karoke_playlist_js", val);
+              switchScreen("start");
+              alert("儲存成功！");
+            } else {
+              alert("JSON 格式錯誤 (需為陣列)");
+            }
+          } catch (e) {
+            alert("JSON 解析失敗: " + e.message);
+          }
+        });
+
+        els.btns.start.addEventListener("click", () => {
+          if (state.playlist.length === 0) return;
+          switchScreen("game");
+          loadSong(0);
+        });
+
+        els.btns.exit.addEventListener("click", () => {
+          stopSync();
+          els.audio.pause();
+          switchScreen("start");
+        });
+
+        // 遊戲控制
+        els.btns.toggle.addEventListener("click", togglePlay);
+        els.btns.reveal.addEventListener("click", reveal);
+        els.btns.reset.addEventListener("click", () =>
+          loadSong(state.currentTrackIndex)
+        );
+        els.btns.prev.addEventListener("click", () =>
+          loadSong(state.currentTrackIndex - 1)
+        );
+        els.btns.next.addEventListener("click", () =>
+          loadSong(state.currentTrackIndex + 1)
+        );
+
+        // 選單控制
+        els.displays.round.addEventListener("click", (e) => {
+          e.stopPropagation();
+          els.displays.menu.classList.toggle("visible");
+        });
+        document.addEventListener("click", () =>
+          els.displays.menu.classList.remove("visible")
+        );
+
+        // 鍵盤
+        window.addEventListener("keydown", (e) => {
+          if (!els.screens.game.classList.contains("hidden")) {
+            if (e.code === "Space") {
+              e.preventDefault();
+              togglePlay();
+            }
+            if (e.code === "Enter") {
+              e.preventDefault();
+              reveal();
+            }
+            if (e.code === "KeyR") loadSong(state.currentTrackIndex);
+            if (e.code === "ArrowRight") loadSong(state.currentTrackIndex + 1);
+            if (e.code === "ArrowLeft") loadSong(state.currentTrackIndex - 1);
+          }
+        });
+
+        // 音訊事件
+        els.audio.addEventListener("play", () => {
+          state.isPlaying = true;
+          if (state.roundState === RoundState.IDLE)
+            state.roundState = RoundState.FLOW;
+          startSync();
+          updateUI();
+        });
+        els.audio.addEventListener("pause", () => {
+          state.isPlaying = false;
+          stopSync();
+          updateUI();
+        });
+        els.audio.addEventListener("ended", () => {
+          state.isPlaying = false;
+          state.roundState = RoundState.FINISHED;
+          stopSync();
+          updateUI();
+        });
+        els.audio.addEventListener("error", (e) => {
+          console.error("Audio Error", e);
+          alert("音訊載入失敗，請檢查路徑");
+        });
+      }
+
+      // --- 4. 核心邏輯 ---
+      function switchScreen(screenName) {
+        Object.values(els.screens).forEach((el) => el.classList.add("hidden"));
+        els.screens[screenName].classList.remove("hidden");
+
+        if (screenName === "start") {
+          // 更新按鈕狀態
+          if (state.playlist.length === 0)
+            els.btns.start.classList.add("btn--disabled");
+          else els.btns.start.classList.remove("btn--disabled");
+        }
+      }
+
+      function loadSong(index) {
+        if (index < 0 || index >= state.playlist.length) return;
+
+        state.currentTrackIndex = index;
+        const song = state.playlist[index];
+        state.config = {
+          startTime: song.startTime || 0,
+          endTime: song.endTime || 0,
+        };
+        state.lyricsData = parseLRC(song.lrc);
+
+        // 重置狀態
+        state.roundState = RoundState.IDLE;
+        state.currentIndex = -1;
+        state.isTitleVisible = false;
+        stopSync();
+
+        // 載入音訊
+        els.audio.src = song.url;
+        els.audio.currentTime = state.config.startTime;
+        // 預載
+        els.audio.load();
+
+        buildMenu();
+        updateUI();
+      }
+
+      function togglePlay() {
+        if (state.roundState === RoundState.LOCKED) return;
+        if (els.audio.paused) els.audio.play();
+        else els.audio.pause();
+      }
+
+      function startSync() {
+        if (syncTimer) clearInterval(syncTimer);
+        syncTimer = setInterval(() => {
+          if (state.roundState === RoundState.LOCKED || els.audio.paused)
+            return;
+
+          const t = els.audio.currentTime;
+          // 結束檢查
+          if (state.config.endTime > 0 && t >= state.config.endTime) {
+            els.audio.pause();
+            state.roundState = RoundState.FINISHED;
+            updateUI();
+            return;
+          }
+
+          // 歌詞比對
+          let activeIdx = -1;
+          for (let i = 0; i < state.lyricsData.length; i++) {
+            if (t >= state.lyricsData[i].time) activeIdx = i;
+            else break;
+          }
+
+          if (activeIdx !== -1 && activeIdx !== state.currentIndex) {
+            const target = state.lyricsData[activeIdx];
+            // 遇到遮罩且未回答 -> 鎖定
+            if (target.hasMask && !target.isAnswered) {
+              state.currentIndex = activeIdx;
+              state.roundState = RoundState.LOCKED;
+              els.audio.pause();
+              updateUI();
+              return;
+            }
+            state.currentIndex = activeIdx;
+            updateUI();
+          }
+        }, 50);
+      }
+
+      function stopSync() {
+        if (syncTimer) clearInterval(syncTimer);
+      }
+
+      function reveal() {
+        if (state.roundState !== RoundState.LOCKED) return;
+
+        // 設定該題已回答
+        state.lyricsData[state.currentIndex].isAnswered = true;
+        state.roundState = RoundState.REVEALING;
+        state.isTitleVisible = true;
+
+        els.audio.play();
+        updateUI();
+
+        setTimeout(() => {
+          if (state.roundState === RoundState.REVEALING) {
+            state.roundState = RoundState.FLOW;
+            updateUI();
+          }
+        }, 500);
+      }
+
+      // --- 5. UI 更新 (最重要的一塊) ---
+      function updateUI() {
+        // Header Info
+        els.displays.round.textContent = `ROUND ${state.currentTrackIndex + 1}`;
+        let statusTxt = "";
+        switch (state.roundState) {
+          case RoundState.LOCKED:
+            statusTxt = "Waiting...";
+            break;
+          case RoundState.REVEALING:
+            statusTxt = "Correct!";
+            break;
+          case RoundState.FINISHED:
+            statusTxt = "Finished";
+            break;
+          case RoundState.IDLE:
+            statusTxt = "Ready";
+            break;
+        }
+        els.displays.status.textContent = statusTxt;
+
+        // 標題
+        els.displays.title.textContent =
+          state.playlist[state.currentTrackIndex]?.title || "";
+        if (state.isTitleVisible) els.displays.title.classList.add("visible");
+        else els.displays.title.classList.remove("visible");
+
+        // 視覺化 bar
+        if (state.isPlaying || state.roundState === RoundState.LOCKED)
+          els.displays.visualizer.classList.add("active");
+        else els.displays.visualizer.classList.remove("active");
+
+        if (state.isPlaying) els.displays.visualizer.classList.add("playing");
+        else els.displays.visualizer.classList.remove("playing");
+
+        // 歌詞顯示區域切換
+        if (state.roundState === RoundState.IDLE) {
+          els.displays.idleMsg.classList.remove("hidden");
+          els.displays.lyricContainer.classList.add("hidden");
+          els.displays.idleRound.textContent = `ROUND ${state.currentTrackIndex + 1}`;
+        } else {
+          els.displays.idleMsg.classList.add("hidden");
+          els.displays.lyricContainer.classList.remove("hidden");
+        }
+
+        // 渲染歌詞
+        if (state.currentIndex !== -1 && state.lyricsData[state.currentIndex]) {
+          const line = state.lyricsData[state.currentIndex];
+          let html = line.rawText;
+
+          if (line.hasMask) {
+            let stateClass = "is-masked";
+            if (line.isAnswered) {
+              stateClass =
+                state.roundState === RoundState.REVEALING ? "is-revealing" : "";
+            }
+            // 將 *text* 替換為 span
+            html = html.replace(
+              /\*(.*?)\*/g,
+              `<span class="magic-word ${stateClass}">$1</span>`
+            );
+          }
+          els.displays.lyricLine.innerHTML = html;
+        } else {
+          els.displays.lyricLine.innerHTML = "";
+        }
+
+        // 按鈕狀態
+        els.btns.toggle.textContent = state.isPlaying ? "⏸ 暫停" : "⏯ 播放";
+        if (state.roundState === RoundState.LOCKED)
+          els.btns.reveal.classList.remove("btn--disabled");
+        else els.btns.reveal.classList.add("btn--disabled");
+      }
+
+      function buildMenu() {
+        let html = "";
+        state.playlist.forEach((song, idx) => {
+          const active = idx === state.currentTrackIndex ? "active" : "";
+          html += `<div class="menu__item ${active}" onclick="loadSong(${idx})">Round ${idx + 1}</div>`;
+        });
+        els.displays.menu.innerHTML = html;
+      }
+
+      // 解析 LRC
+      function parseLRC(lrc) {
+        if (!lrc) return [];
+        let lines = Array.isArray(lrc) ? lrc : lrc.split("\n");
+        return lines
+          .map((line) => {
+            const match = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/.exec(line);
+            if (!match) return null;
+            const time =
+              parseInt(match[1]) * 60 +
+              parseInt(match[2]) +
+              parseInt(match[3].padEnd(3, "0")) / 1000;
+            const rawText = line.replace(/\[.*?\]/, "").trim();
+            return {
+              time,
+              rawText,
+              hasMask: rawText.includes("*"),
+              isAnswered: false,
+            };
+          })
+          .filter((x) => x)
+          .sort((a, b) => a.time - b.time);
+      }
+
+      // 啟動!
+      init();
     </script>
-</body>
+  </body>
 </html>

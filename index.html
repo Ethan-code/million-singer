@@ -176,63 +176,75 @@
         }
       }
 
-      /* 3. 歌詞區域 - 絕對置中，字體超大 */
+      /* 3. 歌詞區域 - 極限大字版 */
       .lyrics-area {
         position: absolute;
-        top: 55%; /* 稍微偏下視角比較舒服 */
+        top: 52%; /* 稍微再往上一點點，讓下方空間多一點 */
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 95%;
+        width: 100%; /* 寬度全開，不留邊 */
         text-align: center;
-        z-index: 30; /* 確保在視覺化之上 */
+        z-index: 30;
         display: flex;
         flex-direction: column;
         justify-content: center;
+        /* 允許文字超出容器時不被切掉，確保大字完整 */
+        overflow: visible;
       }
+
       .lyric-line {
-        font-size: 16vmin; /* 超大字體 */
+        /* 基礎大小 (小螢幕用) */
+        font-size: 20vmin;
         font-weight: 900;
-        line-height: 1.1;
+        line-height: 1; /* 行距壓得更緊，避免兩行時佔太多空間 */
         color: white;
-        text-shadow: 0 0 40px rgba(255, 204, 0, 0.5);
+        /* 強化發光，字變大光也要變強才霸氣 */
+        text-shadow: 0 0 60px rgba(255, 204, 0, 0.6);
         white-space: pre-wrap;
         word-break: break-word;
+        padding: 0 20px; /* 左右留一點點安全距離以免貼邊 */
       }
+
+      /* 電腦螢幕專用設定 */
       @media (min-width: 1024px) {
         .lyric-line {
-          font-size: 22vh;
+          /* 核心修改：佔據螢幕高度的 32% */
+          /* 如果是兩行歌詞，就會佔據 64% 的高度，非常震撼 */
+          font-size: 32vh;
         }
       }
 
-      /* 答案樣式 */
-      .magic-word {
-        display: inline-block;
-        position: relative;
-        padding: 0 0.1em;
-        vertical-align: bottom;
-        color: var(--c-gold);
-        text-shadow: 0 0 30px rgba(255, 204, 0, 0.9);
+      /* 基礎樣式 (通用) */
+      .magic-word { 
+            display: inline-block; 
+            color: var(--c-gold); 
+            text-shadow: 0 0 40px rgba(255, 204, 0, 0.8);
+            margin: 0 5px; /* 間距縮小一點，因為字數變多怕太寬 */
+            border-bottom: 0.1em solid var(--c-gold); 
+            padding-bottom: 10px;
+            
+            /* 確保星號跟國字底部對齊 */
+            vertical-align: baseline; 
+        }
+
+      /* 揭曉時的動畫：放大一下，表示答對了 */
+      .magic-word.is-revealing {
+        animation: popText 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
-      .magic-word.is-masked {
-        color: transparent;
-        text-shadow: none;
-      }
-      .magic-word.is-masked::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: #333;
-        border-bottom: 0.15em solid var(--c-gold);
-        border-radius: 6px;
-        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5);
-      }
-      .magic-word.is-revealing::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: #333;
-        border-bottom: 0.15em solid var(--c-gold);
-        border-radius: 6px;
+
+      @keyframes popText {
+        0% {
+          transform: scale(1);
+          opacity: 0.5;
+        }
+        50% {
+          transform: scale(1.3);
+          opacity: 1;
+        } /* 瞬間變大 */
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
       }
 
       /* 4. 視覺化效果 - 移到最底部，當作裝飾 */
@@ -812,16 +824,28 @@
           let html = line.rawText;
 
           if (line.hasMask) {
-            let stateClass = "is-masked";
-            if (line.isAnswered) {
-              stateClass =
-                state.roundState === RoundState.REVEALING ? "is-revealing" : "";
-            }
-            // 將 *text* 替換為 span
-            html = html.replace(
-              /\*(.*?)\*/g,
-              `<span class="magic-word ${stateClass}">$1</span>`
-            );
+            html = html.replace(/\*(.*?)\*/g, (match, answerContent) => {
+              let content;
+
+              if (line.isAnswered) {
+                // 如果已揭曉，顯示原本的答案
+                content = answerContent;
+              } else {
+                // 依據答案長度，重複產生對應數量的全形＊
+                content = "＊".repeat(answerContent.length);
+              }
+
+              // 設定動畫 class
+              let stateClass = "";
+              if (
+                line.isAnswered &&
+                state.roundState === RoundState.REVEALING
+              ) {
+                stateClass = "is-revealing";
+              }
+
+              return `<span class="magic-word ${stateClass}">${content}</span>`;
+            });
           }
           els.displays.lyricLine.innerHTML = html;
         } else {

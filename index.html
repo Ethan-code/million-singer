@@ -104,7 +104,7 @@
         top: 0;
         left: 0;
         width: 100%;
-        height: 80px;
+        height: 60px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -131,19 +131,20 @@
       }
 
       /* Title & Lyrics */
+      /* 2. 歌曲標題 - 往上移，稍微變小，作為輔助資訊 */
       .title-display {
         position: absolute;
-        top: 10%;
+        top: 5%; /* 從 10% 改為 5%，拉高 */
         left: 0;
         width: 100%;
         text-align: center;
-        font-size: 4vh;
+        font-size: 3vh; /* 字體稍微縮小 (原本 4vh)，讓主角讓給歌詞 */
         font-weight: bold;
         letter-spacing: 2px;
-        z-index: 60;
-        text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        z-index: 20; /* 降低層級，讓它在歌詞"下面" (如果字真的大到重疊，歌詞會蓋過標題) */
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
         display: none;
-        color: #ccc;
+        color: #888; /* 顏色調暗，不要太搶眼 */
         pointer-events: none;
       }
       .title-display.visible {
@@ -161,28 +162,31 @@
         }
       }
 
+      /* 1. 歌詞區域 - 核心修改：改為全螢幕填滿，絕對置中 */
       .lyrics-area {
         position: absolute;
-        top: 55%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 100%;
-        text-align: center;
-        z-index: 30;
+        inset: 0; /* 等同於 top:0; bottom:0; left:0; right:0; 填滿整個視窗 */
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: center; /* 垂直置中 */
+        align-items: center; /* 水平置中 */
+        z-index: 30;
+        /* 允許文字超出容器 (針對超長歌詞) */
         overflow: visible;
       }
+
+      /* 歌詞文字 (維持超大字體，稍微加強陰影區隔背景) */
       .lyric-line {
         font-size: 20vmin;
         font-weight: 900;
         line-height: 1;
         color: white;
-        text-shadow: 0 0 60px rgba(255, 204, 0, 0.6);
+        text-shadow: 0 0 60px rgba(255, 204, 0, 0.8); /* 陰影加重，避免跟標題混在一起 */
         white-space: pre-wrap;
         word-break: break-word;
         padding: 0 20px;
+        text-align: center;
+        width: 100%;
       }
       @media (min-width: 1024px) {
         .lyric-line {

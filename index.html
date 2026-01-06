@@ -158,39 +158,46 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 95%;
-        max-width: 1400px;
+        width: 98%; /* 寬度佔滿 */
+        max-width: 1800px;
         text-align: center;
         z-index: 10;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        min-height: 20vh;
+        height: 60vh; /* 增加高度區域，避免字被切掉 */
       }
+
       .lyric-line {
-        font-size: 10vmin;
+        /* 核心修改：字體變大 */
+        font-size: 15vmin; /* 手機或小視窗時的大小 */
         font-weight: 900;
-        line-height: 1.4;
+        line-height: 1.1; /* 行高調小，讓字更集中 */
         color: white;
-        text-shadow: 0 0 30px rgba(255, 204, 0, 0.3);
+        /* 增強發光效果，讓大字更有質感 */
+        text-shadow: 0 0 40px rgba(255, 204, 0, 0.5);
         white-space: pre-wrap;
         word-break: break-word;
       }
+
+      /* 電腦螢幕 (寬螢幕) 時的設定 */
       @media (min-width: 1024px) {
         .lyric-line {
-          font-size: 12vh;
+          font-size: 20vh; /* 超大！佔據螢幕高度的 20% */
         }
       }
 
-      /* 答案樣式 */
+      /* 答案樣式 - 跟著變大 */
       .magic-word {
         display: inline-block;
         position: relative;
-        padding: 0 0.2em;
+        padding: 0 0.1em; /* 稍微縮小間距 */
         vertical-align: bottom;
         color: var(--c-gold);
-        text-shadow: 0 0 20px rgba(255, 204, 0, 0.8);
+        text-shadow: 0 0 30px rgba(255, 204, 0, 0.9);
       }
+
+      /* 遮罩狀態 - 跟著變大 */
       .magic-word.is-masked {
         color: transparent;
         text-shadow: none;
@@ -200,9 +207,9 @@
         position: absolute;
         inset: 0;
         background: #333;
-        border-bottom: 0.1em solid var(--c-gold);
-        border-radius: 4px;
-        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        border-bottom: 0.15em solid var(--c-gold); /* 線條變粗 */
+        border-radius: 6px;
+        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5);
       }
 
       /* 揭曉動畫 */

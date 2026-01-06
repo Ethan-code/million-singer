@@ -2,7 +2,7 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <title>百萬大歌星 (多重題庫版)</title>
+    <title>百萬大歌星 (介面優化版)</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
@@ -56,8 +56,9 @@
         margin: 0 0 20px 0;
       }
 
+      /* 按鈕樣式 (稍微加寬一點以容納文字) */
       .btn {
-        padding: 12px 24px;
+        padding: 12px 20px;
         border-radius: 50px;
         font-weight: bold;
         cursor: pointer;
@@ -69,6 +70,8 @@
         align-items: center;
         justify-content: center;
         user-select: none;
+        white-space: nowrap;
+        font-size: 0.9rem;
       }
       .btn:hover {
         background: #444;
@@ -91,7 +94,7 @@
         padding: 0;
       }
 
-      /* --- 題庫選擇列表 --- */
+      /* --- 題庫列表 --- */
       .playlist-list {
         display: flex;
         flex-direction: column;
@@ -105,6 +108,7 @@
         padding: 10px;
         border-radius: 8px;
         background: #111;
+        scroll-behavior: smooth;
       }
       .playlist-item {
         padding: 15px;
@@ -125,6 +129,7 @@
         color: black;
         font-weight: bold;
         border-color: var(--c-gold);
+        box-shadow: 0 0 15px rgba(255, 204, 0, 0.3);
       }
 
       /* --- 遊戲畫面 --- */
@@ -347,9 +352,7 @@
 
     <section id="screen-start" class="panel">
       <h1 class="panel__title">🎤 百萬大歌星</h1>
-      <p style="color: #aaa; margin-bottom: 10px">
-        請選擇題庫 (playlists 資料夾)
-      </p>
+      <p style="color: #aaa; margin-bottom: 10px">請選擇題庫 (使用 ↑ ↓ 鍵)</p>
 
       <div id="playlist-container" class="playlist-list">
         <div style="color: #666; text-align: center">正在掃描題庫...</div>
@@ -361,9 +364,9 @@
           class="btn btn--primary btn--disabled"
           style="font-size: 1.5rem"
         >
-          開始遊戲
+          開始遊戲 (Enter)
         </button>
-        <button id="btn-refresh" class="btn">🔄 重新掃描</button>
+        <button id="btn-refresh" class="btn">🔄 重新掃描 (R)</button>
       </div>
       <p id="load-status" class="error-msg"></p>
     </section>
@@ -414,9 +417,6 @@
               margin-bottom: 10px;
             "
           ></p>
-          <span style="color: #888; font-size: 3vh"
-            >Space: 播放 / Enter: 揭曉</span
-          >
         </div>
         <div id="lyric-container" class="w-full hidden">
           <div id="lyric-line" class="lyric-line"></div>
@@ -425,24 +425,24 @@
 
       <nav class="controls">
         <button id="btn-prev" class="btn btn--icon">⏮</button>
-        <button id="btn-toggle" class="btn" style="min-width: 120px">
-          ⏯ 播放
+        <button id="btn-toggle" class="btn" style="min-width: 140px">
+          ⏯ 播放 (Space)
         </button>
         <button id="btn-reveal" class="btn btn--primary btn--disabled">
-          ✨ 答對
+          ✨ 答對 (Enter)
         </button>
-        <button id="btn-reset" class="btn">🔄 重來</button>
+        <button id="btn-reset" class="btn">🔄 重來 (R)</button>
         <button id="btn-next" class="btn btn--icon">⏭</button>
         <button
           id="btn-exit"
-          class="btn btn--icon"
+          class="btn"
           style="
             margin-left: 20px;
             color: var(--c-danger);
             border-color: var(--c-danger);
           "
         >
-          🏠
+          🏠 (H)
         </button>
       </nav>
     </div>
@@ -468,7 +468,9 @@
         config: { startTime: 0, endTime: 0 },
         isTitleVisible: false,
         isPlaying: false,
-        selectedFile: null, // 紀錄目前選中的檔案
+        selectedFile: null,
+        availableFiles: [],
+        selectionIndex: -1,
       };
 
       let syncTimer = null;
@@ -504,45 +506,43 @@
         },
       };
 
-      // --- 核心修改：掃描 playlists 資料夾 ---
       function scanPlaylists() {
         const playlistDir = path.join(__dirname, "playlists");
-        els.playlistList.innerHTML = ""; // 清空列表
+        els.playlistList.innerHTML = "";
         els.status.textContent = "";
         state.selectedFile = null;
+        state.availableFiles = [];
+        state.selectionIndex = -1;
         els.btns.start.classList.add("btn--disabled");
 
-        // 檢查資料夾是否存在
         if (!fs.existsSync(playlistDir)) {
-          // 如果不存在，自動建立一個，並提示使用者
           try {
             fs.mkdirSync(playlistDir);
             els.playlistList.innerHTML =
-              '<div style="color:#f55; padding:10px; text-align:center;">找不到 playlists 資料夾，已為您自動建立。<br>請將 JSON 檔案放入該資料夾後按重新掃描。</div>';
+              '<div style="color:#f55; padding:10px; text-align:center;">找不到 playlists 資料夾，已為您自動建立。</div>';
           } catch (e) {
             els.status.textContent = "無法建立資料夾：" + e.message;
           }
           return;
         }
 
-        // 讀取檔案
         try {
           const files = fs
             .readdirSync(playlistDir)
             .filter((file) => file.endsWith(".json"));
-
           if (files.length === 0) {
             els.playlistList.innerHTML =
               '<div style="color:#888; padding:10px; text-align:center;">資料夾是空的 (需放入 .json)</div>';
             return;
           }
 
-          files.forEach((file) => {
+          state.availableFiles = files;
+
+          files.forEach((file, index) => {
             const div = document.createElement("div");
             div.className = "playlist-item";
-            // 移除 .json 副檔名顯示，比較美觀
             div.textContent = file.replace(".json", "");
-            div.onclick = () => selectPlaylistFile(file, div);
+            div.onclick = () => selectPlaylistByIndex(index);
             els.playlistList.appendChild(div);
           });
         } catch (e) {
@@ -550,29 +550,28 @@
         }
       }
 
-      // 使用者點選某個題庫
-      function selectPlaylistFile(filename, divElement) {
-        state.selectedFile = filename;
+      function selectPlaylistByIndex(index) {
+        if (index < 0 || index >= state.availableFiles.length) return;
 
-        // UI 更新：移除其他選中狀態，加上當前的
-        const items = document.querySelectorAll(".playlist-item");
-        items.forEach((item) => item.classList.remove("selected"));
-        divElement.classList.add("selected");
+        state.selectionIndex = index;
+        state.selectedFile = state.availableFiles[index];
 
-        // 啟用開始按鈕
+        const items = els.playlistList.children;
+        for (let i = 0; i < items.length; i++) {
+          if (i === index) items[i].classList.add("selected");
+          else items[i].classList.remove("selected");
+        }
+
+        items[index].scrollIntoView({ block: "nearest", behavior: "smooth" });
         els.btns.start.classList.remove("btn--disabled");
       }
 
-      // 讀取選中的檔案內容
       function loadSelectedPlaylist() {
         if (!state.selectedFile) return;
-
         const filePath = path.join(__dirname, "playlists", state.selectedFile);
-
         try {
           const data = fs.readFileSync(filePath, "utf-8");
           const pl = JSON.parse(data);
-
           if (Array.isArray(pl) && pl.length > 0) {
             state.playlist = pl;
             switchScreen("game");
@@ -592,10 +591,7 @@
 
       function bindEvents() {
         els.btns.refresh.addEventListener("click", scanPlaylists);
-
-        // 修改開始按鈕邏輯
         els.btns.start.addEventListener("click", loadSelectedPlaylist);
-
         els.btns.exit.addEventListener("click", () => {
           stopSync();
           els.audio.pause();
@@ -623,18 +619,61 @@
         );
 
         window.addEventListener("keydown", (e) => {
-          if (!els.screens.game.classList.contains("hidden")) {
-            if (e.code === "Space") {
-              e.preventDefault();
-              togglePlay();
+          if (!els.screens.start.classList.contains("hidden")) {
+            switch (e.code) {
+              case "Enter":
+                if (state.selectedFile) {
+                  e.preventDefault();
+                  loadSelectedPlaylist();
+                }
+                break;
+              case "KeyR":
+                e.preventDefault();
+                scanPlaylists();
+                break;
+              case "ArrowDown":
+                e.preventDefault();
+                if (state.availableFiles.length > 0) {
+                  let newIndex = state.selectionIndex + 1;
+                  if (newIndex >= state.availableFiles.length)
+                    newIndex = state.availableFiles.length - 1;
+                  selectPlaylistByIndex(newIndex);
+                }
+                break;
+              case "ArrowUp":
+                e.preventDefault();
+                if (state.availableFiles.length > 0) {
+                  let newIndex = state.selectionIndex - 1;
+                  if (newIndex < 0) newIndex = 0;
+                  selectPlaylistByIndex(newIndex);
+                }
+                break;
             }
-            if (e.code === "Enter") {
-              e.preventDefault();
-              reveal();
+          } else if (!els.screens.game.classList.contains("hidden")) {
+            switch (e.code) {
+              case "Space":
+                e.preventDefault();
+                togglePlay();
+                break;
+              case "Enter":
+                e.preventDefault();
+                reveal();
+                break;
+              case "KeyR":
+                loadSong(state.currentTrackIndex);
+                break;
+              case "ArrowRight":
+                loadSong(state.currentTrackIndex + 1);
+                break;
+              case "ArrowLeft":
+                loadSong(state.currentTrackIndex - 1);
+                break;
+              case "KeyH":
+                stopSync();
+                els.audio.pause();
+                switchScreen("start");
+                break;
             }
-            if (e.code === "KeyR") loadSong(state.currentTrackIndex);
-            if (e.code === "ArrowRight") loadSong(state.currentTrackIndex + 1);
-            if (e.code === "ArrowLeft") loadSong(state.currentTrackIndex - 1);
           }
         });
 
@@ -805,7 +844,11 @@
           els.displays.lyricLine.innerHTML = "";
         }
 
-        els.btns.toggle.textContent = state.isPlaying ? "⏸ 暫停" : "⏯ 播放";
+        // --- 核心修改：按鈕文字動態更新 ---
+        els.btns.toggle.textContent = state.isPlaying
+          ? "⏸ 暫停 (Space)"
+          : "⏯ 播放 (Space)";
+
         if (state.roundState === RoundState.LOCKED)
           els.btns.reveal.classList.remove("btn--disabled");
         else els.btns.reveal.classList.add("btn--disabled");

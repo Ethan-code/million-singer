@@ -2,7 +2,7 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <title>百萬大歌星 (Electron 星號版)</title>
+    <title>百萬大歌星 (讀取外部 JSON 版)</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
@@ -21,7 +21,6 @@
       * {
         box-sizing: border-box;
       }
-
       body {
         margin: 0;
         background: var(--c-bg);
@@ -50,34 +49,11 @@
         justify-content: center;
         z-index: 100;
       }
-      .panel__box {
-        background: var(--c-panel);
-        border: 1px solid var(--c-border);
-        border-radius: 8px;
-        padding: 20px;
-        width: 90%;
-        max-width: 800px;
-        display: flex;
-        flex-direction: column;
-        max-height: 90vh;
-      }
       .panel__title {
         font-size: clamp(2.5rem, 8vw, 4rem);
         font-weight: 900;
         color: var(--c-gold);
         margin: 0 0 20px 0;
-      }
-      .panel__textarea {
-        width: 100%;
-        background: #111;
-        color: #a6e22e;
-        border: 1px solid #555;
-        padding: 10px;
-        font-family: monospace;
-        font-size: 14px;
-        border-radius: 4px;
-        margin-bottom: 15px;
-        resize: vertical;
       }
 
       .btn {
@@ -115,14 +91,14 @@
         padding: 0;
       }
 
-      /* --- 遊戲主畫面 --- */
+      /* --- 遊戲畫面 --- */
       .game {
         position: relative;
         width: 100%;
         height: 100%;
       }
 
-      /* 1. 頂部資訊列 */
+      /* Header */
       .header {
         position: absolute;
         top: 0;
@@ -154,7 +130,7 @@
         letter-spacing: 1px;
       }
 
-      /* 2. 歌曲標題 */
+      /* Title & Lyrics */
       .title-display {
         position: absolute;
         top: 10%;
@@ -185,7 +161,6 @@
         }
       }
 
-      /* 3. 歌詞區域 */
       .lyrics-area {
         position: absolute;
         top: 55%;
@@ -215,18 +190,16 @@
         }
       }
 
-      /* 4. 答案樣式 (改回星號 ＊) */
       .magic-word {
         display: inline-block;
         color: var(--c-gold);
         text-shadow: 0 0 40px rgba(255, 204, 0, 0.8);
-        margin: 0 5px; /* 星號間距比較小 */
-        letter-spacing: 0px; /* 不需要太多字距 */
+        margin: 0 5px;
+        letter-spacing: 0px;
         border-bottom: 0.1em solid var(--c-gold);
         padding-bottom: 10px;
         vertical-align: baseline;
       }
-
       .magic-word.is-revealing {
         animation: popText 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
@@ -245,7 +218,7 @@
         }
       }
 
-      /* 5. 視覺化效果 */
+      /* Visualizer & Controls */
       .visualizer {
         position: absolute;
         bottom: 120px;
@@ -285,7 +258,6 @@
         }
       }
 
-      /* 控制列與選單 */
       .controls {
         position: absolute;
         bottom: 30px;
@@ -330,6 +302,13 @@
         color: black;
         font-weight: bold;
       }
+
+      /* 載入錯誤提示 */
+      .error-msg {
+        color: #f55;
+        margin-top: 10px;
+        font-weight: bold;
+      }
     </style>
   </head>
   <body>
@@ -337,50 +316,20 @@
 
     <section id="screen-start" class="panel">
       <h1 class="panel__title">🎤 百萬大歌星</h1>
-      <p style="color: #aaa; margin-bottom: 30px">星號版 v3.1</p>
-      <button
-        id="btn-start-game"
-        class="btn btn--primary"
-        style="font-size: 1.5rem; margin-bottom: 20px"
-      >
-        開始遊戲
-      </button>
-      <button id="btn-to-setup" class="btn">⚙️ 設定題庫</button>
-    </section>
+      <p style="color: #aaa; margin-bottom: 10px">讀取外部 playlist.json</p>
+      <p id="load-status" style="color: #888; margin-bottom: 30px">
+        正在讀取檔案...
+      </p>
 
-    <section id="screen-setup" class="panel hidden">
-      <div class="panel__box">
-        <h2
-          style="
-            color: var(--c-gold);
-            font-weight: 900;
-            margin: 0 0 20px 0;
-            text-align: center;
-            font-size: 2rem;
-          "
+      <div style="display: flex; gap: 10px">
+        <button
+          id="btn-start-game"
+          class="btn btn--primary btn--disabled"
+          style="font-size: 1.5rem"
         >
-          ⚙️ 題庫設定
-        </h2>
-        <div style="color: #888; margin-bottom: 10px; font-size: 0.9rem">
-          請編輯下方 JSON，路徑可直接使用 "./songs/檔名.mp3"
-        </div>
-        <textarea
-          id="input-playlist"
-          rows="15"
-          class="panel__textarea"
-        ></textarea>
-        <div style="display: flex; gap: 10px">
-          <button
-            id="btn-save-playlist"
-            class="btn btn--primary"
-            style="flex: 1"
-          >
-            儲存並返回
-          </button>
-          <button id="btn-cancel-setup" class="btn" style="flex: 1">
-            取消
-          </button>
-        </div>
+          開始遊戲
+        </button>
+        <button id="btn-reload" class="btn">🔄 重新讀取 JSON</button>
       </div>
     </section>
 
@@ -391,7 +340,6 @@
       </header>
 
       <aside id="menu-container" class="menu"></aside>
-
       <div id="display-title" class="title-display"></div>
 
       <div id="visualizer" class="visualizer">
@@ -465,6 +413,10 @@
     </div>
 
     <script>
+      // --- 引入 Electron 的模組 ---
+      const fs = require("fs");
+      const path = require("path");
+
       const RoundState = {
         IDLE: "IDLE",
         FLOW: "FLOW",
@@ -472,20 +424,6 @@
         REVEALING: "REVEALING",
         FINISHED: "FINISHED",
       };
-
-      const DEFAULT_PLAYLIST = JSON.stringify(
-        [
-          {
-            title: "原生JS測試",
-            url: "./songs/demo.mp3",
-            startTime: 0,
-            endTime: 0,
-            lrc: ["[00:01.00]再見了*Alpine*", "[00:03.00]原生JS才是*王道*"],
-          },
-        ],
-        null,
-        2
-      );
 
       let state = {
         playlist: [],
@@ -503,11 +441,10 @@
       const els = {
         screens: {
           start: document.getElementById("screen-start"),
-          setup: document.getElementById("screen-setup"),
           game: document.getElementById("screen-game"),
         },
         audio: document.getElementById("audioPlayer"),
-        inputs: { playlist: document.getElementById("input-playlist") },
+        status: document.getElementById("load-status"),
         displays: {
           round: document.getElementById("display-round"),
           status: document.getElementById("display-status"),
@@ -521,9 +458,7 @@
         },
         btns: {
           start: document.getElementById("btn-start-game"),
-          toSetup: document.getElementById("btn-to-setup"),
-          save: document.getElementById("btn-save-playlist"),
-          cancel: document.getElementById("btn-cancel-setup"),
+          reload: document.getElementById("btn-reload"),
           prev: document.getElementById("btn-prev"),
           next: document.getElementById("btn-next"),
           toggle: document.getElementById("btn-toggle"),
@@ -533,46 +468,50 @@
         },
       };
 
-      function init() {
-        let saved = localStorage.getItem("karoke_playlist_js_v3");
-        if (!saved) saved = DEFAULT_PLAYLIST;
-        els.inputs.playlist.value = saved;
-        try {
-          state.playlist = JSON.parse(saved);
-          if (
-            state.playlist.length > 0 &&
-            !state.playlist[0].url &&
-            !state.playlist[0].filename
-          ) {
-            state.playlist = JSON.parse(DEFAULT_PLAYLIST);
-            els.inputs.playlist.value = DEFAULT_PLAYLIST;
+      // --- 核心修改：讀取 JSON 檔案 ---
+      function loadPlaylistFromFile() {
+        // 檔案路徑：跟 index.html 在同一層的 playlist.json
+        const jsonPath = path.join(__dirname, "playlist.json");
+
+        els.status.textContent = "正在讀取 playlist.json ...";
+        els.status.className = ""; // 清除錯誤樣式
+        els.btns.start.classList.add("btn--disabled");
+
+        if (fs.existsSync(jsonPath)) {
+          try {
+            const data = fs.readFileSync(jsonPath, "utf-8");
+            const pl = JSON.parse(data);
+
+            if (Array.isArray(pl) && pl.length > 0) {
+              state.playlist = pl;
+              els.status.textContent = `✅ 成功載入 ${pl.length} 首歌曲`;
+              els.status.style.color = "#4c4";
+              els.btns.start.classList.remove("btn--disabled");
+            } else {
+              throw new Error("格式錯誤：必須是包含歌曲的陣列");
+            }
+          } catch (e) {
+            els.status.textContent = "❌ 讀取失敗: " + e.message;
+            els.status.className = "error-msg";
           }
-        } catch (e) {
-          state.playlist = JSON.parse(DEFAULT_PLAYLIST);
+        } else {
+          els.status.textContent =
+            "⚠️ 找不到檔案：請在同一資料夾建立 playlist.json";
+          els.status.className = "error-msg";
         }
+      }
+
+      function init() {
+        loadPlaylistFromFile();
         bindEvents();
-        updateUI();
       }
 
       function bindEvents() {
-        els.btns.toSetup.addEventListener("click", () => switchScreen("setup"));
-        els.btns.cancel.addEventListener("click", () => switchScreen("start"));
-        els.btns.save.addEventListener("click", () => {
-          try {
-            const val = els.inputs.playlist.value;
-            const pl = JSON.parse(val);
-            if (Array.isArray(pl) && pl.length > 0) {
-              state.playlist = pl;
-              localStorage.setItem("karoke_playlist_js_v3", val);
-              switchScreen("start");
-              alert("儲存成功！");
-            } else {
-              alert("JSON 格式錯誤");
-            }
-          } catch (e) {
-            alert("JSON 解析失敗");
-          }
+        // 重新讀取按鈕
+        els.btns.reload.addEventListener("click", () => {
+          loadPlaylistFromFile();
         });
+
         els.btns.start.addEventListener("click", () => {
           if (state.playlist.length > 0) {
             switchScreen("game");
@@ -584,6 +523,7 @@
           els.audio.pause();
           switchScreen("start");
         });
+
         els.btns.toggle.addEventListener("click", togglePlay);
         els.btns.reveal.addEventListener("click", reveal);
         els.btns.reset.addEventListener("click", () =>
@@ -595,6 +535,7 @@
         els.btns.next.addEventListener("click", () =>
           loadSong(state.currentTrackIndex + 1)
         );
+
         els.displays.round.addEventListener("click", (e) => {
           e.stopPropagation();
           els.displays.menu.classList.toggle("visible");
@@ -602,6 +543,7 @@
         document.addEventListener("click", () =>
           els.displays.menu.classList.remove("visible")
         );
+
         window.addEventListener("keydown", (e) => {
           if (!els.screens.game.classList.contains("hidden")) {
             if (e.code === "Space") {
@@ -617,6 +559,7 @@
             if (e.code === "ArrowLeft") loadSong(state.currentTrackIndex - 1);
           }
         });
+
         els.audio.addEventListener("play", () => {
           state.isPlaying = true;
           if (state.roundState === RoundState.IDLE)
@@ -637,26 +580,24 @@
         });
         els.audio.addEventListener("error", (e) => {
           console.error("Audio Error", e);
-          alert("音訊載入失敗");
+          alert("音訊載入失敗：請檢查 songs 資料夾與檔名");
         });
       }
 
       function switchScreen(screenName) {
         Object.values(els.screens).forEach((el) => el.classList.add("hidden"));
         els.screens[screenName].classList.remove("hidden");
-        if (screenName === "start") {
-          if (state.playlist.length === 0)
-            els.btns.start.classList.add("btn--disabled");
-          else els.btns.start.classList.remove("btn--disabled");
-        }
       }
 
       window.loadSong = function (index) {
         if (index < 0 || index >= state.playlist.length) return;
         state.currentTrackIndex = index;
         const song = state.playlist[index];
+
+        // 路徑處理
         let songUrl = song.url;
         if (!songUrl && song.filename) songUrl = "./songs/" + song.filename;
+
         state.config = {
           startTime: song.startTime || 0,
           endTime: song.endTime || 0,
@@ -772,7 +713,6 @@
           let html = line.rawText;
           if (line.hasMask) {
             html = html.replace(/\*(.*?)\*/g, (match, answerContent) => {
-              // 核心：換成星號 ＊
               const content = line.isAnswered
                 ? answerContent
                 : "＊".repeat(answerContent.length);

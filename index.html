@@ -2,14 +2,14 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <title>百萬大歌星 (Electron 原生版)</title>
+    <title>百萬大歌星 (Electron 星號版)</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
     />
 
     <style>
-      /* --- 基礎設定 --- */
+      /* --- 全局設定 --- */
       :root {
         --c-gold: #ffcc00;
         --c-bg: #000;
@@ -18,6 +18,10 @@
         --c-border: #444;
         --c-danger: #c00;
       }
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         background: var(--c-bg);
@@ -35,7 +39,7 @@
         display: none !important;
       }
 
-      /* --- 面板 (Start/Setup) --- */
+      /* --- 面板 --- */
       .panel {
         position: absolute;
         inset: 0;
@@ -76,7 +80,6 @@
         resize: vertical;
       }
 
-      /* --- 按鈕 --- */
       .btn {
         padding: 12px 24px;
         border-radius: 50px;
@@ -117,16 +120,19 @@
         position: relative;
         width: 100%;
         height: 100%;
-      } /* 移除 flex center，改用絕對定位佈局 */
+      }
 
-      /* 1. 頂部資訊列 (Round) - 固定在最上面 */
+      /* 1. 頂部資訊列 */
       .header {
         position: absolute;
-        top: 20px;
+        top: 0;
+        left: 0;
         width: 100%;
+        height: 80px;
         display: flex;
         justify-content: space-between;
-        padding: 0 30px;
+        align-items: center;
+        padding: 0 40px;
         z-index: 50;
         pointer-events: none;
       }
@@ -141,25 +147,28 @@
         pointer-events: auto;
       }
       .header__status {
-        font-size: 1rem;
+        font-size: 1.2rem;
         color: #888;
         font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
       }
 
-      /* 2. 歌曲標題 - 移到 Round 下方，避免擋住歌詞 */
+      /* 2. 歌曲標題 */
       .title-display {
         position: absolute;
-        top: 12%; /* 固定在上方 12% 處 */
+        top: 10%;
         left: 0;
         width: 100%;
         text-align: center;
         font-size: 4vh;
         font-weight: bold;
         letter-spacing: 2px;
-        z-index: 20;
+        z-index: 60;
         text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
         display: none;
-        color: #aaa; /*稍微調暗一點點區分層次*/
+        color: #ccc;
+        pointer-events: none;
       }
       .title-display.visible {
         display: block;
@@ -176,62 +185,51 @@
         }
       }
 
-      /* 3. 歌詞區域 - 極限大字版 */
+      /* 3. 歌詞區域 */
       .lyrics-area {
         position: absolute;
-        top: 52%; /* 稍微再往上一點點，讓下方空間多一點 */
+        top: 55%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 100%; /* 寬度全開，不留邊 */
+        width: 100%;
         text-align: center;
         z-index: 30;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        /* 允許文字超出容器時不被切掉，確保大字完整 */
         overflow: visible;
       }
-
       .lyric-line {
-        /* 基礎大小 (小螢幕用) */
         font-size: 20vmin;
         font-weight: 900;
-        line-height: 1; /* 行距壓得更緊，避免兩行時佔太多空間 */
+        line-height: 1;
         color: white;
-        /* 強化發光，字變大光也要變強才霸氣 */
         text-shadow: 0 0 60px rgba(255, 204, 0, 0.6);
         white-space: pre-wrap;
         word-break: break-word;
-        padding: 0 20px; /* 左右留一點點安全距離以免貼邊 */
+        padding: 0 20px;
       }
-
-      /* 電腦螢幕專用設定 */
       @media (min-width: 1024px) {
         .lyric-line {
-          /* 核心修改：佔據螢幕高度的 32% */
-          /* 如果是兩行歌詞，就會佔據 64% 的高度，非常震撼 */
           font-size: 32vh;
         }
       }
 
-      /* 基礎樣式 (通用) */
-      .magic-word { 
-            display: inline-block; 
-            color: var(--c-gold); 
-            text-shadow: 0 0 40px rgba(255, 204, 0, 0.8);
-            margin: 0 5px; /* 間距縮小一點，因為字數變多怕太寬 */
-            border-bottom: 0.1em solid var(--c-gold); 
-            padding-bottom: 10px;
-            
-            /* 確保星號跟國字底部對齊 */
-            vertical-align: baseline; 
-        }
+      /* 4. 答案樣式 (改回星號 ＊) */
+      .magic-word {
+        display: inline-block;
+        color: var(--c-gold);
+        text-shadow: 0 0 40px rgba(255, 204, 0, 0.8);
+        margin: 0 5px; /* 星號間距比較小 */
+        letter-spacing: 0px; /* 不需要太多字距 */
+        border-bottom: 0.1em solid var(--c-gold);
+        padding-bottom: 10px;
+        vertical-align: baseline;
+      }
 
-      /* 揭曉時的動畫：放大一下，表示答對了 */
       .magic-word.is-revealing {
         animation: popText 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
-
       @keyframes popText {
         0% {
           transform: scale(1);
@@ -240,40 +238,41 @@
         50% {
           transform: scale(1.3);
           opacity: 1;
-        } /* 瞬間變大 */
+        }
         100% {
           transform: scale(1);
           opacity: 1;
         }
       }
 
-      /* 4. 視覺化效果 - 移到最底部，當作裝飾 */
+      /* 5. 視覺化效果 */
       .visualizer {
         position: absolute;
-        bottom: 120px; /* 放在控制列上方 */
+        bottom: 120px;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
-        gap: 15px; /* 間距加大 */
+        gap: 15px;
         align-items: flex-end;
-        height: 100px; /* 高度拉高 */
+        height: 100px;
         opacity: 0.1;
         transition: opacity 0.5s;
         z-index: 10;
+        pointer-events: none;
       }
       .visualizer.active {
         opacity: 0.8;
-      } /* 啟動時更亮 */
+      }
       .visualizer__bar {
         width: 20px;
         background: var(--c-gold);
         border-radius: 4px;
         box-shadow: 0 0 20px var(--c-gold);
+        transform-origin: bottom;
       }
       .visualizer.playing .visualizer__bar {
         animation: bounce 1s infinite ease-in-out;
       }
-
       @keyframes bounce {
         0%,
         100% {
@@ -286,7 +285,7 @@
         }
       }
 
-      /* 底部控制列 */
+      /* 控制列與選單 */
       .controls {
         position: absolute;
         bottom: 30px;
@@ -303,8 +302,6 @@
       .controls:active {
         opacity: 1;
       }
-
-      /* 選單 */
       .menu {
         position: absolute;
         top: 75px;
@@ -340,7 +337,7 @@
 
     <section id="screen-start" class="panel">
       <h1 class="panel__title">🎤 百萬大歌星</h1>
-      <p style="color: #aaa; margin-bottom: 30px">原生 JS 版 v2.0</p>
+      <p style="color: #aaa; margin-bottom: 30px">星號版 v3.1</p>
       <button
         id="btn-start-game"
         class="btn btn--primary"
@@ -468,7 +465,6 @@
     </div>
 
     <script>
-      // --- 1. 全域變數與常數 ---
       const RoundState = {
         IDLE: "IDLE",
         FLOW: "FLOW",
@@ -495,7 +491,7 @@
         playlist: [],
         currentTrackIndex: 0,
         roundState: RoundState.IDLE,
-        currentIndex: -1, // 歌詞行數
+        currentIndex: -1,
         lyricsData: [],
         config: { startTime: 0, endTime: 0 },
         isTitleVisible: false,
@@ -504,7 +500,6 @@
 
       let syncTimer = null;
 
-      // --- 2. DOM 元素快取 ---
       const els = {
         screens: {
           start: document.getElementById("screen-start"),
@@ -512,9 +507,7 @@
           game: document.getElementById("screen-game"),
         },
         audio: document.getElementById("audioPlayer"),
-        inputs: {
-          playlist: document.getElementById("input-playlist"),
-        },
+        inputs: { playlist: document.getElementById("input-playlist") },
         displays: {
           round: document.getElementById("display-round"),
           status: document.getElementById("display-status"),
@@ -540,57 +533,57 @@
         },
       };
 
-      // --- 3. 初始化 ---
       function init() {
-        // 讀取設定
-        const saved = localStorage.getItem("karoke_playlist_js");
-        els.inputs.playlist.value = saved || DEFAULT_PLAYLIST;
-
+        let saved = localStorage.getItem("karoke_playlist_js_v3");
+        if (!saved) saved = DEFAULT_PLAYLIST;
+        els.inputs.playlist.value = saved;
         try {
-          state.playlist = JSON.parse(els.inputs.playlist.value);
+          state.playlist = JSON.parse(saved);
+          if (
+            state.playlist.length > 0 &&
+            !state.playlist[0].url &&
+            !state.playlist[0].filename
+          ) {
+            state.playlist = JSON.parse(DEFAULT_PLAYLIST);
+            els.inputs.playlist.value = DEFAULT_PLAYLIST;
+          }
         } catch (e) {
-          console.error("JSON Error");
+          state.playlist = JSON.parse(DEFAULT_PLAYLIST);
         }
-
         bindEvents();
-        updateUI(); // 確保按鈕狀態正確
+        updateUI();
       }
 
       function bindEvents() {
-        // 切換畫面邏輯
         els.btns.toSetup.addEventListener("click", () => switchScreen("setup"));
         els.btns.cancel.addEventListener("click", () => switchScreen("start"));
-
         els.btns.save.addEventListener("click", () => {
           try {
             const val = els.inputs.playlist.value;
             const pl = JSON.parse(val);
             if (Array.isArray(pl) && pl.length > 0) {
               state.playlist = pl;
-              localStorage.setItem("karoke_playlist_js", val);
+              localStorage.setItem("karoke_playlist_js_v3", val);
               switchScreen("start");
               alert("儲存成功！");
             } else {
-              alert("JSON 格式錯誤 (需為陣列)");
+              alert("JSON 格式錯誤");
             }
           } catch (e) {
-            alert("JSON 解析失敗: " + e.message);
+            alert("JSON 解析失敗");
           }
         });
-
         els.btns.start.addEventListener("click", () => {
-          if (state.playlist.length === 0) return;
-          switchScreen("game");
-          loadSong(0);
+          if (state.playlist.length > 0) {
+            switchScreen("game");
+            loadSong(0);
+          }
         });
-
         els.btns.exit.addEventListener("click", () => {
           stopSync();
           els.audio.pause();
           switchScreen("start");
         });
-
-        // 遊戲控制
         els.btns.toggle.addEventListener("click", togglePlay);
         els.btns.reveal.addEventListener("click", reveal);
         els.btns.reset.addEventListener("click", () =>
@@ -602,8 +595,6 @@
         els.btns.next.addEventListener("click", () =>
           loadSong(state.currentTrackIndex + 1)
         );
-
-        // 選單控制
         els.displays.round.addEventListener("click", (e) => {
           e.stopPropagation();
           els.displays.menu.classList.toggle("visible");
@@ -611,8 +602,6 @@
         document.addEventListener("click", () =>
           els.displays.menu.classList.remove("visible")
         );
-
-        // 鍵盤
         window.addEventListener("keydown", (e) => {
           if (!els.screens.game.classList.contains("hidden")) {
             if (e.code === "Space") {
@@ -628,8 +617,6 @@
             if (e.code === "ArrowLeft") loadSong(state.currentTrackIndex - 1);
           }
         });
-
-        // 音訊事件
         els.audio.addEventListener("play", () => {
           state.isPlaying = true;
           if (state.roundState === RoundState.IDLE)
@@ -650,66 +637,50 @@
         });
         els.audio.addEventListener("error", (e) => {
           console.error("Audio Error", e);
-          alert("音訊載入失敗，請檢查路徑");
+          alert("音訊載入失敗");
         });
       }
 
-      // --- 4. 核心邏輯 ---
       function switchScreen(screenName) {
         Object.values(els.screens).forEach((el) => el.classList.add("hidden"));
         els.screens[screenName].classList.remove("hidden");
-
         if (screenName === "start") {
-          // 更新按鈕狀態
           if (state.playlist.length === 0)
             els.btns.start.classList.add("btn--disabled");
           else els.btns.start.classList.remove("btn--disabled");
         }
       }
 
-      function loadSong(index) {
+      window.loadSong = function (index) {
         if (index < 0 || index >= state.playlist.length) return;
-
         state.currentTrackIndex = index;
         const song = state.playlist[index];
+        let songUrl = song.url;
+        if (!songUrl && song.filename) songUrl = "./songs/" + song.filename;
         state.config = {
           startTime: song.startTime || 0,
           endTime: song.endTime || 0,
         };
         state.lyricsData = parseLRC(song.lrc);
-
-        // 重置狀態
         state.roundState = RoundState.IDLE;
         state.currentIndex = -1;
         state.isTitleVisible = false;
         stopSync();
-
-        // 載入音訊
-        els.audio.src = song.url;
+        els.audio.src = songUrl;
         els.audio.currentTime = state.config.startTime;
-        // 預載
         els.audio.load();
-
         buildMenu();
         updateUI();
-      }
+      };
 
       function togglePlay() {
-        // 修改重點：
-        // 如果現在是 LOCKED (鎖定問答中) 或者 REVEALING (正在跑揭曉動畫)
-        // 就直接 return，不允許使用者手動暫停/播放
         if (
           state.roundState === RoundState.LOCKED ||
           state.roundState === RoundState.REVEALING
-        ) {
+        )
           return;
-        }
-
-        if (els.audio.paused) {
-          els.audio.play().catch((e) => console.error(e));
-        } else {
-          els.audio.pause();
-        }
+        if (els.audio.paused) els.audio.play().catch(console.error);
+        else els.audio.pause();
       }
 
       function startSync() {
@@ -717,26 +688,20 @@
         syncTimer = setInterval(() => {
           if (state.roundState === RoundState.LOCKED || els.audio.paused)
             return;
-
           const t = els.audio.currentTime;
-          // 結束檢查
           if (state.config.endTime > 0 && t >= state.config.endTime) {
             els.audio.pause();
             state.roundState = RoundState.FINISHED;
             updateUI();
             return;
           }
-
-          // 歌詞比對
           let activeIdx = -1;
           for (let i = 0; i < state.lyricsData.length; i++) {
             if (t >= state.lyricsData[i].time) activeIdx = i;
             else break;
           }
-
           if (activeIdx !== -1 && activeIdx !== state.currentIndex) {
             const target = state.lyricsData[activeIdx];
-            // 遇到遮罩且未回答 -> 鎖定
             if (target.hasMask && !target.isAnswered) {
               state.currentIndex = activeIdx;
               state.roundState = RoundState.LOCKED;
@@ -756,59 +721,43 @@
 
       function reveal() {
         if (state.roundState !== RoundState.LOCKED) return;
-
-        // 設定該題已回答
         state.lyricsData[state.currentIndex].isAnswered = true;
         state.roundState = RoundState.REVEALING;
         state.isTitleVisible = true;
-
         els.audio.play();
         updateUI();
-
         setTimeout(() => {
           if (state.roundState === RoundState.REVEALING) {
             state.roundState = RoundState.FLOW;
             updateUI();
           }
-        }, 0);
+        }, 250);
       }
 
-      // --- 5. UI 更新 (最重要的一塊) ---
       function updateUI() {
-        // Header Info
         els.displays.round.textContent = `ROUND ${state.currentTrackIndex + 1}`;
-        let statusTxt = "";
-        switch (state.roundState) {
-          case RoundState.LOCKED:
-            statusTxt = "Waiting...";
-            break;
-          case RoundState.REVEALING:
-            statusTxt = "Correct!";
-            break;
-          case RoundState.FINISHED:
-            statusTxt = "Finished";
-            break;
-          case RoundState.IDLE:
-            statusTxt = "Ready";
-            break;
-        }
-        els.displays.status.textContent = statusTxt;
+        els.displays.status.textContent =
+          state.roundState === RoundState.LOCKED
+            ? "Waiting..."
+            : state.roundState === RoundState.REVEALING
+              ? "Correct!"
+              : state.roundState === RoundState.FINISHED
+                ? "Finished"
+                : state.roundState === RoundState.IDLE
+                  ? "Ready"
+                  : "";
 
-        // 標題
         els.displays.title.textContent =
           state.playlist[state.currentTrackIndex]?.title || "";
         if (state.isTitleVisible) els.displays.title.classList.add("visible");
         else els.displays.title.classList.remove("visible");
 
-        // 視覺化 bar
         if (state.isPlaying || state.roundState === RoundState.LOCKED)
           els.displays.visualizer.classList.add("active");
         else els.displays.visualizer.classList.remove("active");
-
         if (state.isPlaying) els.displays.visualizer.classList.add("playing");
         else els.displays.visualizer.classList.remove("playing");
 
-        // 歌詞顯示區域切換
         if (state.roundState === RoundState.IDLE) {
           els.displays.idleMsg.classList.remove("hidden");
           els.displays.lyricContainer.classList.add("hidden");
@@ -818,32 +767,19 @@
           els.displays.lyricContainer.classList.remove("hidden");
         }
 
-        // 渲染歌詞
         if (state.currentIndex !== -1 && state.lyricsData[state.currentIndex]) {
           const line = state.lyricsData[state.currentIndex];
           let html = line.rawText;
-
           if (line.hasMask) {
             html = html.replace(/\*(.*?)\*/g, (match, answerContent) => {
-              let content;
-
-              if (line.isAnswered) {
-                // 如果已揭曉，顯示原本的答案
-                content = answerContent;
-              } else {
-                // 依據答案長度，重複產生對應數量的全形＊
-                content = "＊".repeat(answerContent.length);
-              }
-
-              // 設定動畫 class
-              let stateClass = "";
-              if (
-                line.isAnswered &&
-                state.roundState === RoundState.REVEALING
-              ) {
-                stateClass = "is-revealing";
-              }
-
+              // 核心：換成星號 ＊
+              const content = line.isAnswered
+                ? answerContent
+                : "＊".repeat(answerContent.length);
+              let stateClass =
+                line.isAnswered && state.roundState === RoundState.REVEALING
+                  ? "is-revealing"
+                  : "";
               return `<span class="magic-word ${stateClass}">${content}</span>`;
             });
           }
@@ -852,7 +788,6 @@
           els.displays.lyricLine.innerHTML = "";
         }
 
-        // 按鈕狀態
         els.btns.toggle.textContent = state.isPlaying ? "⏸ 暫停" : "⏯ 播放";
         if (state.roundState === RoundState.LOCKED)
           els.btns.reveal.classList.remove("btn--disabled");
@@ -868,7 +803,6 @@
         els.displays.menu.innerHTML = html;
       }
 
-      // 解析 LRC
       function parseLRC(lrc) {
         if (!lrc) return [];
         let lines = Array.isArray(lrc) ? lrc : lrc.split("\n");
@@ -892,7 +826,6 @@
           .sort((a, b) => a.time - b.time);
       }
 
-      // 啟動!
       init();
     </script>
   </body>

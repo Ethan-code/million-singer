@@ -9,7 +9,7 @@
     />
 
     <style>
-      /* --- 基礎變數 --- */
+      /* --- 基礎設定 --- */
       :root {
         --c-gold: #ffcc00;
         --c-bg: #000;
@@ -18,7 +18,6 @@
         --c-border: #444;
         --c-danger: #c00;
       }
-
       body {
         margin: 0;
         background: var(--c-bg);
@@ -32,13 +31,11 @@
         justify-content: center;
         align-items: center;
       }
-
-      /* --- 隱藏/顯示控制 (核心) --- */
       .hidden {
         display: none !important;
       }
 
-      /* --- 面板 --- */
+      /* --- 面板 (Start/Setup) --- */
       .panel {
         position: absolute;
         inset: 0;
@@ -115,17 +112,14 @@
         padding: 0;
       }
 
-      /* --- 遊戲區 --- */
+      /* --- 遊戲主畫面 --- */
       .game {
         position: relative;
         width: 100%;
         height: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      }
+      } /* 移除 flex center，改用絕對定位佈局 */
 
+      /* 1. 頂部資訊列 (Round) - 固定在最上面 */
       .header {
         position: absolute;
         top: 20px;
@@ -152,101 +146,20 @@
         font-weight: bold;
       }
 
-      /* --- 歌詞與遮罩 --- */
-      .lyrics-area {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 98%; /* 寬度佔滿 */
-        max-width: 1800px;
-        text-align: center;
-        z-index: 10;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        height: 60vh; /* 增加高度區域，避免字被切掉 */
-      }
-
-      .lyric-line {
-        /* 核心修改：字體變大 */
-        font-size: 15vmin; /* 手機或小視窗時的大小 */
-        font-weight: 900;
-        line-height: 1.1; /* 行高調小，讓字更集中 */
-        color: white;
-        /* 增強發光效果，讓大字更有質感 */
-        text-shadow: 0 0 40px rgba(255, 204, 0, 0.5);
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      /* 電腦螢幕 (寬螢幕) 時的設定 */
-      @media (min-width: 1024px) {
-        .lyric-line {
-          font-size: 20vh; /* 超大！佔據螢幕高度的 20% */
-        }
-      }
-
-      /* 答案樣式 - 跟著變大 */
-      .magic-word {
-        display: inline-block;
-        position: relative;
-        padding: 0 0.1em; /* 稍微縮小間距 */
-        vertical-align: bottom;
-        color: var(--c-gold);
-        text-shadow: 0 0 30px rgba(255, 204, 0, 0.9);
-      }
-
-      /* 遮罩狀態 - 跟著變大 */
-      .magic-word.is-masked {
-        color: transparent;
-        text-shadow: none;
-      }
-      .magic-word.is-masked::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: #333;
-        border-bottom: 0.15em solid var(--c-gold); /* 線條變粗 */
-        border-radius: 6px;
-        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5);
-      }
-
-      /* 揭曉動畫 */
-      .magic-word.is-revealing::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: #333;
-        border-bottom: 0.1em solid var(--c-gold);
-        border-radius: 4px;
-        animation: maskPopOut 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)
-          forwards;
-      }
-      @keyframes maskPopOut {
-        0% {
-          transform: scale(1);
-          opacity: 1;
-        }
-        100% {
-          transform: scale(1.5);
-          opacity: 0;
-          visibility: hidden;
-        }
-      }
-
-      /* 標題 */
+      /* 2. 歌曲標題 - 移到 Round 下方，避免擋住歌詞 */
       .title-display {
         position: absolute;
-        top: 15%;
-        width: 90%;
+        top: 12%; /* 固定在上方 12% 處 */
+        left: 0;
+        width: 100%;
         text-align: center;
-        font-size: 5vh;
+        font-size: 4vh;
         font-weight: bold;
         letter-spacing: 2px;
         z-index: 20;
         text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
         display: none;
+        color: #aaa; /*稍微調暗一點點區分層次*/
       }
       .title-display.visible {
         display: block;
@@ -263,29 +176,92 @@
         }
       }
 
-      /* 視覺化 */
+      /* 3. 歌詞區域 - 絕對置中，字體超大 */
+      .lyrics-area {
+        position: absolute;
+        top: 55%; /* 稍微偏下視角比較舒服 */
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 95%;
+        text-align: center;
+        z-index: 30; /* 確保在視覺化之上 */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .lyric-line {
+        font-size: 16vmin; /* 超大字體 */
+        font-weight: 900;
+        line-height: 1.1;
+        color: white;
+        text-shadow: 0 0 40px rgba(255, 204, 0, 0.5);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      @media (min-width: 1024px) {
+        .lyric-line {
+          font-size: 22vh;
+        }
+      }
+
+      /* 答案樣式 */
+      .magic-word {
+        display: inline-block;
+        position: relative;
+        padding: 0 0.1em;
+        vertical-align: bottom;
+        color: var(--c-gold);
+        text-shadow: 0 0 30px rgba(255, 204, 0, 0.9);
+      }
+      .magic-word.is-masked {
+        color: transparent;
+        text-shadow: none;
+      }
+      .magic-word.is-masked::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: #333;
+        border-bottom: 0.15em solid var(--c-gold);
+        border-radius: 6px;
+        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5);
+      }
+      .magic-word.is-revealing::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: #333;
+        border-bottom: 0.15em solid var(--c-gold);
+        border-radius: 6px;
+      }
+
+      /* 4. 視覺化效果 - 移到最底部，當作裝飾 */
       .visualizer {
         position: absolute;
-        top: 25%;
+        bottom: 120px; /* 放在控制列上方 */
+        left: 50%;
+        transform: translateX(-50%);
         display: flex;
-        gap: 8px;
+        gap: 15px; /* 間距加大 */
         align-items: flex-end;
-        height: 60px;
-        opacity: 0.2;
+        height: 100px; /* 高度拉高 */
+        opacity: 0.1;
         transition: opacity 0.5s;
         z-index: 10;
       }
       .visualizer.active {
-        opacity: 1;
-      }
+        opacity: 0.8;
+      } /* 啟動時更亮 */
       .visualizer__bar {
-        width: 12px;
+        width: 20px;
         background: var(--c-gold);
         border-radius: 4px;
+        box-shadow: 0 0 20px var(--c-gold);
       }
       .visualizer.playing .visualizer__bar {
         animation: bounce 1s infinite ease-in-out;
       }
+
       @keyframes bounce {
         0%,
         100% {
@@ -298,10 +274,12 @@
         }
       }
 
-      /* 控制列與選單 */
+      /* 底部控制列 */
       .controls {
         position: absolute;
         bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
         display: flex;
         gap: 10px;
         z-index: 40;
@@ -313,6 +291,8 @@
       .controls:active {
         opacity: 1;
       }
+
+      /* 選單 */
       .menu {
         position: absolute;
         top: 75px;
@@ -703,9 +683,21 @@
       }
 
       function togglePlay() {
-        if (state.roundState === RoundState.LOCKED) return;
-        if (els.audio.paused) els.audio.play();
-        else els.audio.pause();
+        // 修改重點：
+        // 如果現在是 LOCKED (鎖定問答中) 或者 REVEALING (正在跑揭曉動畫)
+        // 就直接 return，不允許使用者手動暫停/播放
+        if (
+          state.roundState === RoundState.LOCKED ||
+          state.roundState === RoundState.REVEALING
+        ) {
+          return;
+        }
+
+        if (els.audio.paused) {
+          els.audio.play().catch((e) => console.error(e));
+        } else {
+          els.audio.pause();
+        }
       }
 
       function startSync() {
@@ -766,7 +758,7 @@
             state.roundState = RoundState.FLOW;
             updateUI();
           }
-        }, 500);
+        }, 0);
       }
 
       // --- 5. UI 更新 (最重要的一塊) ---

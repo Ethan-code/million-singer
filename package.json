@@ -5,7 +5,36 @@
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac --x64",
     "make": "electron-forge make"
+  },
+  "build": {
+    "appId": "com.ethan.millionstar",
+    "productName": "百萬大歌星",
+    "files": [
+      "**/*",
+      "!songs/*",
+      "!playlists/*"
+    ],
+    "extraResources": [
+      {
+        "from": "songs/",
+        "to": "songs/"
+      },
+      {
+        "from": "playlists/",
+        "to": "playlists/"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": "zip",
+      "icon": "build/icon.icns"
+    }
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.10.2",
@@ -16,7 +45,8 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
     "@electron-forge/plugin-fuses": "^7.10.2",
     "@electron/fuses": "^1.8.0",
-    "electron": "^39.2.7"
+    "electron": "^39.2.7",
+    "electron-builder": "^26.4.0"
   },
   "keywords": [],
   "author": "",

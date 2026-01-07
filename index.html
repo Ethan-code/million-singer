@@ -589,6 +589,45 @@
       const fs = require("fs");
       const path = require("path");
 
+      // ==========================================
+      // ★★★ 核心路徑管理系統 (Path Manager) ★★★
+      // ==========================================
+
+      // 1. 判斷是否為打包後的環境
+      // 如果 __dirname 包含 'app.asar'，代表程式正在被封裝的執行檔中跑 -> 是打包版
+      const isPackaged = __dirname.includes("app.asar");
+
+      // 2. 決定「外部資源」的根目錄
+      // 開發模式 (Dev)  -> 使用專案根目錄 (__dirname)
+      // 打包模式 (Prod) -> 使用執行檔旁邊的 resources 資料夾 (process.resourcesPath)
+      const RESOURCE_ROOT = isPackaged ? process.resourcesPath : __dirname;
+
+      // 3. 統一的路徑取得函式 (所有檔案讀取都必須透過這裡！)
+      const PathHelper = {
+        // 取得 playlists 資料夾的絕對路徑
+        getPlaylistsDir: () => path.join(RESOURCE_ROOT, "playlists"),
+
+        // 取得 songs 資料夾的絕對路徑
+        getSongsDir: () => path.join(RESOURCE_ROOT, "songs"),
+
+        // 取得某個播放清單檔案的完整路徑
+        getPlaylistFile: (filename) =>
+          path.join(RESOURCE_ROOT, "playlists", filename),
+
+        // 取得某首歌曲的完整路徑
+        getSongFile: (filename) => path.join(RESOURCE_ROOT, "songs", filename),
+      };
+
+      // --- 除錯用 (按 Ctrl+Shift+I 查看) ---
+      console.log("=== 環境診斷 ===");
+      console.log("是否已打包 (isPackaged):", isPackaged);
+      console.log("資源根目錄 (RESOURCE_ROOT):", RESOURCE_ROOT);
+      console.log("Playlists 目標路徑:", PathHelper.getPlaylistsDir());
+      console.log("Songs 目標路徑:", PathHelper.getSongsDir());
+      console.log("==================");
+
+      // ==========================================
+
       const RoundState = {
         IDLE: "IDLE",
         FLOW: "FLOW",
@@ -648,7 +687,9 @@
       };
 
       function scanPlaylists() {
-        const playlistDir = path.join(__dirname, "playlists");
+        // ★ 修改：使用 PathHelper 取得路徑
+        const playlistDir = PathHelper.getPlaylistsDir();
+
         els.playlistList.innerHTML = "";
         els.status.textContent = "";
         state.selectedFile = null;
@@ -656,13 +697,15 @@
         state.selectionIndex = -1;
         els.btns.start.classList.add("btn--disabled");
 
+        // 檢查資料夾是否存在
         if (!fs.existsSync(playlistDir)) {
           try {
-            fs.mkdirSync(playlistDir);
+            fs.mkdirSync(playlistDir, { recursive: true }); // recursive 確保父目錄存在
             els.playlistList.innerHTML =
-              '<div style="color:#f55; padding:10px; text-align:center;">找不到 playlists 資料夾，已為您自動建立。</div>';
+              '<div style="color:#f55; padding:10px; text-align:center;">找不到 playlists 資料夾，已自動建立。</div>';
           } catch (e) {
-            els.status.textContent = "無法建立資料夾：" + e.message;
+            console.error(e);
+            els.status.textContent = "無法建立資料夾：" + playlistDir;
           }
           return;
         }
@@ -671,11 +714,13 @@
           const files = fs
             .readdirSync(playlistDir)
             .filter((file) => file.endsWith(".json"));
+
           if (files.length === 0) {
             els.playlistList.innerHTML =
               '<div style="color:#888; padding:10px; text-align:center;">資料夾是空的 (需放入 .json)</div>';
             return;
           }
+
           state.availableFiles = files;
           files.forEach((file, index) => {
             const div = document.createElement("div");
@@ -685,6 +730,7 @@
             els.playlistList.appendChild(div);
           });
         } catch (e) {
+          console.error(e);
           els.status.textContent = "掃描失敗：" + e.message;
         }
       }
@@ -704,7 +750,10 @@
 
       function loadSelectedPlaylist() {
         if (!state.selectedFile) return;
-        const filePath = path.join(__dirname, "playlists", state.selectedFile);
+
+        // ★ 修改：使用 PathHelper 讀取檔案
+        const filePath = PathHelper.getPlaylistFile(state.selectedFile);
+
         try {
           const data = fs.readFileSync(filePath, "utf-8");
           const pl = JSON.parse(data);
@@ -823,11 +872,8 @@
         els.audio.addEventListener("pause", () => {
           state.isPlaying = false;
           stopSync();
-
-          // ★★★ 暫停時強制關閉警示 ★★★
           els.warningOverlay.classList.remove("active");
           els.warningIcon.classList.remove("active");
-
           updateUI();
         });
         els.audio.addEventListener("ended", () => {
@@ -838,7 +884,7 @@
         });
         els.audio.addEventListener("error", (e) => {
           console.error("Audio Error", e);
-          alert("音訊載入失敗");
+          alert("音訊載入失敗，請確認 songs 資料夾內是否有該檔案。");
         });
       }
 
@@ -851,8 +897,13 @@
         if (index < 0 || index >= state.playlist.length) return;
         state.currentTrackIndex = index;
         const song = state.playlist[index];
+
         let songUrl = song.url;
-        if (!songUrl && song.filename) songUrl = "./songs/" + song.filename;
+        if (!songUrl && song.filename) {
+          // ★ 修改：使用 PathHelper 取得音樂路徑
+          songUrl = PathHelper.getSongFile(song.filename);
+        }
+
         state.config = {
           startTime: song.startTime || 0,
           endTime: song.endTime || 0,
@@ -894,7 +945,6 @@
             return;
           }
 
-          // --- 5秒警示判斷 ---
           let nextMaskTime = -1;
           for (let i = 0; i < state.lyricsData.length; i++) {
             const line = state.lyricsData[i];
@@ -904,7 +954,6 @@
             }
           }
 
-          // 啟動警示 (Icon + Solid Border)
           if (nextMaskTime !== -1 && nextMaskTime - t <= 5) {
             els.warningOverlay.classList.add("active");
             els.warningIcon.classList.add("active");
@@ -1020,9 +1069,6 @@
           let html = line.rawText;
           if (line.hasMask) {
             html = html.replace(/\*(.*?)\*/g, (match, answerContent) => {
-              // 如果已回答，顯示答案
-              // 如果未回答，顯示 ★ (數量跟字數一樣)
-              // ★ 重點：這裡加入了 class="mask-symbol"
               const content = line.isAnswered
                 ? answerContent
                 : '<span class="mask-symbol">★</span>'.repeat(
@@ -1041,7 +1087,6 @@
           els.displays.lyricLine.innerHTML = "";
         }
 
-        /* 判斷按鈕文字顯示 */
         if (state.roundState === RoundState.IDLE) {
           els.btns.toggle.textContent = "▶ 開始 (Space)";
         } else {

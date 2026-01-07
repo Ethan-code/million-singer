@@ -2,7 +2,7 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <title>百萬大歌星 (無框質感版)</title>
+    <title>百萬大歌星 (實線警報版)</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
@@ -149,15 +149,13 @@
         width: 100%;
         height: 100px;
         display: grid;
-        /* Grid 設定：左、中、右 */
         grid-template-columns: 200px 1fr 200px;
-        align-items: center; /* 確保垂直置中 */
+        align-items: center;
         padding: 0 40px;
         z-index: 50;
         pointer-events: none;
         background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
       }
-
       .header__round {
         font-size: 1.5rem;
         color: var(--c-gold);
@@ -170,22 +168,18 @@
         text-align: center;
       }
 
-      /* 核心修改：狀態列改為無框風格 */
+      /* 狀態列 */
       .header__status {
-        font-size: 1.5rem; /* 字體放大，跟左邊 Round 一樣大 */
-        font-weight: 900; /* 加粗 */
+        font-size: 1.5rem;
+        font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 2px;
-        text-align: right; /* 靠右對齊 */
-        /* 移除邊框和背景 */
+        text-align: right;
         background: transparent;
         border: none;
         transition: all 0.3s;
-        /* 確保它垂直置中 */
         align-self: center;
       }
-
-      /* 狀態顏色改用 Text Shadow 發光效果 */
       .status--ready {
         color: var(--c-success);
         text-shadow: 0 0 15px var(--c-success);
@@ -207,7 +201,6 @@
         color: #888;
         text-shadow: none;
       }
-
       @keyframes pulseText {
         0% {
           opacity: 1;
@@ -352,7 +345,6 @@
         }
       }
 
-      /* 中間過場大字 */
       #idle-round-text {
         color: var(--c-gold);
         white-space: nowrap;
@@ -362,6 +354,71 @@
         line-height: 1;
         text-shadow: 0 0 80px rgba(255, 204, 0, 0.6);
         transform: skewX(-10deg);
+      }
+
+      /* ★★★ 核心修改：實線紅框 + 強烈閃爍 ★★★ */
+
+      /* 1. 警示邊框 (Solid Border) */
+      .warning-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 25;
+        opacity: 0;
+        transition: opacity 0.1s;
+        /* 預設邊框 (透明) */
+        border: 20px solid transparent;
+      }
+      .warning-overlay.active {
+        opacity: 1;
+        /* 啟動超快閃爍動畫 */
+        animation: hardPanic 0.3s infinite alternate;
+      }
+
+      @keyframes hardPanic {
+        0% {
+          border-color: rgba(255, 0, 0, 1); /* 亮紅實線 */
+          background-color: rgba(255, 0, 0, 0.1); /* 微微泛紅背景 */
+          box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.8); /* 內發光 */
+        }
+        100% {
+          border-color: rgba(100, 0, 0, 0.5); /* 暗紅 */
+          background-color: transparent;
+          box-shadow: none;
+        }
+      }
+
+      /* 2. 警示 Icon */
+      .warning-icon {
+        position: absolute;
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 8vh;
+        color: #ff3333;
+        z-index: 40;
+        opacity: 0;
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        text-shadow: 0 0 20px rgba(255, 0, 0, 1); /* 強烈光暈 */
+        pointer-events: none;
+      }
+      .warning-icon.active {
+        opacity: 1;
+        top: 25%;
+        /* Icon 也跟著狂閃 */
+        animation: iconPanic 0.3s infinite alternate;
+      }
+
+      @keyframes iconPanic {
+        0% {
+          transform: translateX(-50%) scale(1);
+          text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        100% {
+          transform: translateX(-50%) scale(1.4);
+          text-shadow: 0 0 60px red;
+          color: #fff;
+        } /* 閃到變白 */
       }
 
       .controls {
@@ -409,7 +466,6 @@
         color: black;
         font-weight: bold;
       }
-
       .error-msg {
         color: #f55;
         margin-top: 10px;
@@ -440,6 +496,10 @@
     </section>
 
     <div id="screen-game" class="game hidden">
+      <div id="warning-overlay" class="warning-overlay"></div>
+
+      <div id="warning-icon" class="warning-icon">⚠️</div>
+
       <header class="header">
         <div id="display-round" class="header__round">ROUND 1</div>
         <div id="visualizer" class="visualizer">
@@ -556,6 +616,8 @@
         playlistList: document.getElementById("playlist-container"),
         titlePanel: document.getElementById("title-panel"),
         titleText: document.getElementById("title-text"),
+        warningOverlay: document.getElementById("warning-overlay"),
+        warningIcon: document.getElementById("warning-icon"),
         displays: {
           round: document.getElementById("display-round"),
           status: document.getElementById("display-status"),
@@ -812,12 +874,33 @@
           if (state.roundState === RoundState.LOCKED || els.audio.paused)
             return;
           const t = els.audio.currentTime;
+
           if (state.config.endTime > 0 && t >= state.config.endTime) {
             els.audio.pause();
             state.roundState = RoundState.FINISHED;
             updateUI();
             return;
           }
+
+          // --- 5秒警示判斷 ---
+          let nextMaskTime = -1;
+          for (let i = 0; i < state.lyricsData.length; i++) {
+            const line = state.lyricsData[i];
+            if (line.time > t && line.hasMask && !line.isAnswered) {
+              nextMaskTime = line.time;
+              break;
+            }
+          }
+
+          // 啟動警示 (Icon + Solid Border)
+          if (nextMaskTime !== -1 && nextMaskTime - t <= 5) {
+            els.warningOverlay.classList.add("active");
+            els.warningIcon.classList.add("active");
+          } else {
+            els.warningOverlay.classList.remove("active");
+            els.warningIcon.classList.remove("active");
+          }
+
           let activeIdx = -1;
           for (let i = 0; i < state.lyricsData.length; i++) {
             if (t >= state.lyricsData[i].time) activeIdx = i;
@@ -862,7 +945,6 @@
 
         let statusText = "";
         let statusClass = "";
-
         switch (state.roundState) {
           case RoundState.IDLE:
             statusText = "🟢 READY";
@@ -885,7 +967,6 @@
             statusClass = "status--finished";
             break;
         }
-
         els.displays.status.className = "header__status " + statusClass;
         els.displays.status.textContent = statusText;
 
@@ -905,9 +986,21 @@
           els.displays.lyricContainer.classList.add("hidden");
           els.displays.idleRound.textContent = `ROUND ${state.currentTrackIndex + 1}`;
           els.titlePanel.classList.remove("visible");
+
+          els.warningOverlay.classList.remove("active");
+          els.warningIcon.classList.remove("active");
         } else {
           els.displays.idleMsg.classList.add("hidden");
           els.displays.lyricContainer.classList.remove("hidden");
+        }
+
+        if (
+          state.roundState === RoundState.LOCKED ||
+          state.roundState === RoundState.REVEALING ||
+          state.roundState === RoundState.FINISHED
+        ) {
+          els.warningOverlay.classList.remove("active");
+          els.warningIcon.classList.remove("active");
         }
 
         if (state.currentIndex !== -1 && state.lyricsData[state.currentIndex]) {
@@ -933,15 +1026,12 @@
         els.btns.toggle.textContent = state.isPlaying
           ? "⏸ 暫停 (Space)"
           : "⏯ 播放 (Space)";
-
         if (
           state.roundState === RoundState.LOCKED ||
           state.roundState === RoundState.FINISHED
-        ) {
+        )
           els.btns.toggle.classList.add("btn--disabled");
-        } else {
-          els.btns.toggle.classList.remove("btn--disabled");
-        }
+        else els.btns.toggle.classList.remove("btn--disabled");
 
         if (state.roundState === RoundState.LOCKED)
           els.btns.reveal.classList.remove("btn--disabled");

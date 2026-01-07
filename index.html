@@ -2,7 +2,7 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <title>百萬大歌星 (實線警報版)</title>
+    <title>百萬大歌星 (最終修正版)</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
@@ -564,7 +564,7 @@
       <nav class="controls">
         <button id="btn-prev" class="btn btn--icon">⏮</button>
         <button id="btn-toggle" class="btn" style="min-width: 140px">
-          ⏯ 播放 (Space)
+          ▶ 開始 (Space)
         </button>
         <button id="btn-reveal" class="btn btn--primary btn--disabled">
           ✨ 答對 (Enter)
@@ -1036,9 +1036,15 @@
           els.displays.lyricLine.innerHTML = "";
         }
 
-        els.btns.toggle.textContent = state.isPlaying
-          ? "⏸ 暫停 (Space)"
-          : "⏯ 播放 (Space)";
+        /* 核心修改：判斷按鈕文字顯示 */
+        if (state.roundState === RoundState.IDLE) {
+          els.btns.toggle.textContent = "▶ 開始 (Space)";
+        } else {
+          els.btns.toggle.textContent = state.isPlaying
+            ? "⏸ 暫停 (Space)"
+            : "⏯ 播放 (Space)";
+        }
+
         if (
           state.roundState === RoundState.LOCKED ||
           state.roundState === RoundState.FINISHED

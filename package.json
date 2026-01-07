@@ -32,11 +32,20 @@
       "icon": "build/icon.ico"
     },
     "mac": {
-      "target": "zip",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "build/icon.icns",
-      "category": "public.app-category.games",
+      "minimumSystemVersion": "11.0",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "universal": true,
+      "sign": false
     }
   },
   "devDependencies": {

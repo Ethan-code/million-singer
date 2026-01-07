@@ -5,8 +5,8 @@
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
-    "build:win": "electron-builder --win --x64",
-    "build:mac": "electron-builder --mac --universal",
+    "build:win": "electron-builder --win --x64 -p never",
+    "build:mac": "electron-builder --mac --x64 -p never",
     "make": "electron-forge make"
   },
   "build": {

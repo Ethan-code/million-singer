@@ -6,7 +6,7 @@
     "start": "electron-forge start",
     "package": "electron-forge package",
     "build:win": "electron-builder --win --x64",
-    "build:mac": "electron-builder --mac --x64",
+    "build:mac": "electron-builder --mac --universal",
     "make": "electron-forge make"
   },
   "build": {
@@ -33,7 +33,10 @@
     },
     "mac": {
       "target": "zip",
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "category": "public.app-category.games",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     }
   },
   "devDependencies": {

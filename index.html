@@ -2,7 +2,7 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <title>百萬大歌星 (最終修正版)</title>
+    <title>百萬大歌星</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
@@ -354,7 +354,7 @@
         transform: skewX(-10deg);
       }
 
-      /* ★★★ 核心修改：實線紅框 + 強烈閃爍 ★★★ */
+      /* ★★★ 實線紅框 + 強烈閃爍 ★★★ */
 
       /* 1. 警示邊框 (Solid Border) */
       .warning-overlay {
@@ -823,6 +823,11 @@
         els.audio.addEventListener("pause", () => {
           state.isPlaying = false;
           stopSync();
+
+          // ★★★ 暫停時強制關閉警示 ★★★
+          els.warningOverlay.classList.remove("active");
+          els.warningIcon.classList.remove("active");
+
           updateUI();
         });
         els.audio.addEventListener("ended", () => {
@@ -1036,7 +1041,7 @@
           els.displays.lyricLine.innerHTML = "";
         }
 
-        /* 核心修改：判斷按鈕文字顯示 */
+        /* 判斷按鈕文字顯示 */
         if (state.roundState === RoundState.IDLE) {
           els.btns.toggle.textContent = "▶ 開始 (Space)";
         } else {

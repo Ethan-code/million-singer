@@ -2,7 +2,7 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <title>百萬大歌星 (介面優化版)</title>
+    <title>百萬大歌星 (標題滑入版)</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
@@ -56,7 +56,6 @@
         margin: 0 0 20px 0;
       }
 
-      /* 按鈕樣式 (稍微加寬一點以容納文字) */
       .btn {
         padding: 12px 20px;
         border-radius: 50px;
@@ -138,19 +137,23 @@
         width: 100%;
         height: 100%;
       }
+
+      /* 1. Header (包含 Visualizer) */
       .header {
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
-        height: 60px;
-        display: flex;
-        justify-content: space-between;
+        height: 100px;
+        display: grid;
+        grid-template-columns: 200px 1fr 200px; /* 左中右佈局 */
         align-items: center;
         padding: 0 40px;
         z-index: 50;
         pointer-events: none;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
       }
+
       .header__round {
         font-size: 1.5rem;
         color: var(--c-gold);
@@ -160,43 +163,93 @@
         cursor: pointer;
         background: rgba(0, 0, 0, 0.5);
         pointer-events: auto;
+        text-align: center;
       }
+
       .header__status {
         font-size: 1.2rem;
         color: #888;
         font-weight: bold;
         text-transform: uppercase;
         letter-spacing: 1px;
+        text-align: right;
       }
 
-      .title-display {
-        position: absolute;
-        top: 5%;
-        left: 0;
-        width: 100%;
-        text-align: center;
-        font-size: 3vh;
-        font-weight: bold;
-        letter-spacing: 2px;
-        z-index: 20;
-        text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
-        display: none;
-        color: #888;
-        pointer-events: none;
+      /* 2. Visualizer (在 Header 中間) */
+      .visualizer {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        height: 40px;
+        opacity: 0.2;
+        transition: opacity 0.5s;
       }
-      .title-display.visible {
-        display: block;
-        animation: fadeIn 0.5s;
+      .visualizer.active {
+        opacity: 1;
       }
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(-10px);
+      .visualizer__bar {
+        width: 8px;
+        background: var(--c-gold);
+        border-radius: 2px;
+        box-shadow: 0 0 10px var(--c-gold);
+        height: 100%;
+      }
+      .visualizer.playing .visualizer__bar {
+        animation: bounce 1s infinite ease-in-out;
+      }
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: scaleY(0.3);
+          opacity: 0.5;
         }
-        to {
+        50% {
+          transform: scaleY(1);
           opacity: 1;
-          transform: translateY(0);
         }
+      }
+
+      /* 3. 右側標題滑出區塊 (Title Panel) - 這裡套用了之前的 Answer Panel 效果 */
+      .title-panel {
+        position: fixed;
+        right: 0;
+        bottom: 150px; /* 位於控制列上方 */
+        background: rgba(0, 0, 0, 0.9);
+        border: 4px solid var(--c-gold);
+        border-right: none;
+        border-radius: 20px 0 0 20px;
+        padding: 15px 40px;
+        padding-right: 60px;
+        color: #fff;
+        box-shadow: -10px 10px 50px rgba(0, 0, 0, 0.8);
+        transform: translateX(120%); /* 預設藏在外面 */
+        transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-width: 300px;
+      }
+      /* 滑入狀態 */
+      .title-panel.visible {
+        transform: translateX(0);
+      }
+
+      .title-label {
+        font-size: 0.9rem;
+        color: var(--c-gold);
+        font-weight: bold;
+        margin-bottom: 5px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      .title-text {
+        font-size: 2rem;
+        font-weight: 900;
+        color: white;
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+        white-space: nowrap;
       }
 
       /* 全螢幕歌詞 */
@@ -228,6 +281,7 @@
         }
       }
 
+      /* 4. 恢復原本的 ＊ 遮罩效果 */
       .magic-word {
         display: inline-block;
         color: var(--c-gold);
@@ -256,43 +310,16 @@
         }
       }
 
-      .visualizer {
-        position: absolute;
-        bottom: 120px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        gap: 15px;
-        align-items: flex-end;
-        height: 100px;
-        opacity: 0.1;
-        transition: opacity 0.5s;
-        z-index: 10;
-        pointer-events: none;
-      }
-      .visualizer.active {
-        opacity: 0.8;
-      }
-      .visualizer__bar {
-        width: 20px;
-        background: var(--c-gold);
-        border-radius: 4px;
-        box-shadow: 0 0 20px var(--c-gold);
-        transform-origin: bottom;
-      }
-      .visualizer.playing .visualizer__bar {
-        animation: bounce 1s infinite ease-in-out;
-      }
-      @keyframes bounce {
-        0%,
-        100% {
-          transform: scaleY(0.3);
-          opacity: 0.5;
-        }
-        50% {
-          transform: scaleY(1);
-          opacity: 1;
-        }
+      /* 中間過場大字 */
+      #idle-round-text {
+        color: var(--c-gold);
+        white-space: nowrap;
+        font-size: min(40vh, 18vw);
+        font-weight: 900;
+        margin: 0;
+        line-height: 1;
+        text-shadow: 0 0 80px rgba(255, 204, 0, 0.6);
+        transform: skewX(-10deg);
       }
 
       .controls {
@@ -313,8 +340,8 @@
       }
       .menu {
         position: absolute;
-        top: 75px;
-        left: 30px;
+        top: 110px;
+        left: 40px;
         background: rgba(34, 34, 34, 0.98);
         border: 2px solid var(--c-gold);
         border-radius: 8px;
@@ -322,16 +349,17 @@
         overflow-y: auto;
         z-index: 101;
         display: none;
-        min-width: 200px;
+        min-width: 250px;
       }
       .menu.visible {
         display: block;
       }
       .menu__item {
-        padding: 12px 20px;
+        padding: 15px 25px;
         cursor: pointer;
         border-bottom: 1px solid #444;
         color: #ccc;
+        font-size: 1.2rem;
       }
       .menu__item:hover,
       .menu__item.active {
@@ -353,11 +381,9 @@
     <section id="screen-start" class="panel">
       <h1 class="panel__title">🎤 百萬大歌星</h1>
       <p style="color: #aaa; margin-bottom: 10px">請選擇題庫 (使用 ↑ ↓ 鍵)</p>
-
       <div id="playlist-container" class="playlist-list">
         <div style="color: #666; text-align: center">正在掃描題庫...</div>
       </div>
-
       <div style="display: flex; gap: 10px">
         <button
           id="btn-start-game"
@@ -374,33 +400,44 @@
     <div id="screen-game" class="game hidden">
       <header class="header">
         <div id="display-round" class="header__round">ROUND 1</div>
+        <div id="visualizer" class="visualizer">
+          <div
+            class="visualizer__bar"
+            style="height: 40%; animation-duration: 0.8s"
+          ></div>
+          <div
+            class="visualizer__bar"
+            style="height: 80%; animation-duration: 1.2s"
+          ></div>
+          <div
+            class="visualizer__bar"
+            style="height: 60%; animation-duration: 0.5s"
+          ></div>
+          <div
+            class="visualizer__bar"
+            style="height: 90%; animation-duration: 1s"
+          ></div>
+          <div
+            class="visualizer__bar"
+            style="height: 50%; animation-duration: 0.7s"
+          ></div>
+          <div
+            class="visualizer__bar"
+            style="height: 70%; animation-duration: 0.9s"
+          ></div>
+          <div
+            class="visualizer__bar"
+            style="height: 40%; animation-duration: 1.1s"
+          ></div>
+        </div>
         <div id="display-status" class="header__status">Ready</div>
       </header>
 
       <aside id="menu-container" class="menu"></aside>
-      <div id="display-title" class="title-display"></div>
 
-      <div id="visualizer" class="visualizer">
-        <div
-          class="visualizer__bar"
-          style="height: 30px; animation-duration: 0.8s"
-        ></div>
-        <div
-          class="visualizer__bar"
-          style="height: 50px; animation-duration: 1.2s"
-        ></div>
-        <div
-          class="visualizer__bar"
-          style="height: 70px; animation-duration: 0.5s"
-        ></div>
-        <div
-          class="visualizer__bar"
-          style="height: 40px; animation-duration: 1s"
-        ></div>
-        <div
-          class="visualizer__bar"
-          style="height: 30px; animation-duration: 0.7s"
-        ></div>
+      <div id="title-panel" class="title-panel">
+        <div class="title-label">Now Playing</div>
+        <div id="title-text" class="title-text"></div>
       </div>
 
       <div class="lyrics-area">
@@ -408,15 +445,7 @@
           id="idle-msg"
           style="display: flex; flex-direction: column; align-items: center"
         >
-          <p
-            id="idle-round-text"
-            style="
-              color: var(--c-gold);
-              font-size: 5vh;
-              font-weight: bold;
-              margin-bottom: 10px;
-            "
-          ></p>
+          <p id="idle-round-text"></p>
         </div>
         <div id="lyric-container" class="w-full hidden">
           <div id="lyric-line" class="lyric-line"></div>
@@ -483,10 +512,11 @@
         audio: document.getElementById("audioPlayer"),
         status: document.getElementById("load-status"),
         playlistList: document.getElementById("playlist-container"),
+        titlePanel: document.getElementById("title-panel"),
+        titleText: document.getElementById("title-text"),
         displays: {
           round: document.getElementById("display-round"),
           status: document.getElementById("display-status"),
-          title: document.getElementById("display-title"),
           idleMsg: document.getElementById("idle-msg"),
           idleRound: document.getElementById("idle-round-text"),
           lyricContainer: document.getElementById("lyric-container"),
@@ -535,9 +565,7 @@
               '<div style="color:#888; padding:10px; text-align:center;">資料夾是空的 (需放入 .json)</div>';
             return;
           }
-
           state.availableFiles = files;
-
           files.forEach((file, index) => {
             const div = document.createElement("div");
             div.className = "playlist-item";
@@ -552,16 +580,13 @@
 
       function selectPlaylistByIndex(index) {
         if (index < 0 || index >= state.availableFiles.length) return;
-
         state.selectionIndex = index;
         state.selectedFile = state.availableFiles[index];
-
         const items = els.playlistList.children;
         for (let i = 0; i < items.length; i++) {
           if (i === index) items[i].classList.add("selected");
           else items[i].classList.remove("selected");
         }
-
         items[index].scrollIntoView({ block: "nearest", behavior: "smooth" });
         els.btns.start.classList.remove("btn--disabled");
       }
@@ -634,18 +659,18 @@
               case "ArrowDown":
                 e.preventDefault();
                 if (state.availableFiles.length > 0) {
-                  let newIndex = state.selectionIndex + 1;
-                  if (newIndex >= state.availableFiles.length)
-                    newIndex = state.availableFiles.length - 1;
-                  selectPlaylistByIndex(newIndex);
+                  let i = state.selectionIndex + 1;
+                  if (i >= state.availableFiles.length)
+                    i = state.availableFiles.length - 1;
+                  selectPlaylistByIndex(i);
                 }
                 break;
               case "ArrowUp":
                 e.preventDefault();
                 if (state.availableFiles.length > 0) {
-                  let newIndex = state.selectionIndex - 1;
-                  if (newIndex < 0) newIndex = 0;
-                  selectPlaylistByIndex(newIndex);
+                  let i = state.selectionIndex - 1;
+                  if (i < 0) i = 0;
+                  selectPlaylistByIndex(i);
                 }
                 break;
             }
@@ -697,7 +722,7 @@
         });
         els.audio.addEventListener("error", (e) => {
           console.error("Audio Error", e);
-          alert("音訊載入失敗：請檢查 songs 資料夾與檔名");
+          alert("音訊載入失敗");
         });
       }
 
@@ -710,10 +735,8 @@
         if (index < 0 || index >= state.playlist.length) return;
         state.currentTrackIndex = index;
         const song = state.playlist[index];
-
         let songUrl = song.url;
         if (!songUrl && song.filename) songUrl = "./songs/" + song.filename;
-
         state.config = {
           startTime: song.startTime || 0,
           endTime: song.endTime || 0,
@@ -804,10 +827,14 @@
                   ? "Ready"
                   : "";
 
-        els.displays.title.textContent =
+        // --- 控制標題滑入面板 ---
+        els.titleText.textContent =
           state.playlist[state.currentTrackIndex]?.title || "";
-        if (state.isTitleVisible) els.displays.title.classList.add("visible");
-        else els.displays.title.classList.remove("visible");
+        if (state.isTitleVisible) {
+          els.titlePanel.classList.add("visible");
+        } else {
+          els.titlePanel.classList.remove("visible");
+        }
 
         if (state.isPlaying || state.roundState === RoundState.LOCKED)
           els.displays.visualizer.classList.add("active");
@@ -819,6 +846,7 @@
           els.displays.idleMsg.classList.remove("hidden");
           els.displays.lyricContainer.classList.add("hidden");
           els.displays.idleRound.textContent = `ROUND ${state.currentTrackIndex + 1}`;
+          els.titlePanel.classList.remove("visible"); // 閒置時隱藏標題
         } else {
           els.displays.idleMsg.classList.add("hidden");
           els.displays.lyricContainer.classList.remove("hidden");
@@ -827,8 +855,11 @@
         if (state.currentIndex !== -1 && state.lyricsData[state.currentIndex]) {
           const line = state.lyricsData[state.currentIndex];
           let html = line.rawText;
+
+          // 改回原來的 inline ＊ 揭曉
           if (line.hasMask) {
             html = html.replace(/\*(.*?)\*/g, (match, answerContent) => {
+              // 如果已揭曉：顯示文字；如果未揭曉：顯示 ＊＊＊
               const content = line.isAnswered
                 ? answerContent
                 : "＊".repeat(answerContent.length);
@@ -844,11 +875,9 @@
           els.displays.lyricLine.innerHTML = "";
         }
 
-        // --- 核心修改：按鈕文字動態更新 ---
         els.btns.toggle.textContent = state.isPlaying
           ? "⏸ 暫停 (Space)"
           : "⏯ 播放 (Space)";
-
         if (state.roundState === RoundState.LOCKED)
           els.btns.reveal.classList.remove("btn--disabled");
         else els.btns.reveal.classList.add("btn--disabled");

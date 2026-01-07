@@ -1,3 +1,14 @@
+# .gitignore 內容
 node_modules/
-out/
 dist/
+out/
+build/
+.DS_Store
+
+# 忽略所有歌曲與題庫
+songs/*
+playlists/*
+
+# ★ 允許 Demo 檔案被 Commit
+!songs/demo.mp3
+!playlists/default.json

@@ -8,6 +8,6 @@ out/
 songs/*
 playlists/*
 
-# ★ 允許 Demo 檔案被 Commit
+# 允許 Demo 檔案被 Commit
 !songs/demo.mp3
 !playlists/default.json

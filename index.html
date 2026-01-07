@@ -323,8 +323,6 @@
         text-shadow: 0 0 40px rgba(255, 204, 0, 0.8);
         margin: 0 5px;
         letter-spacing: 0px;
-        border-bottom: 0.1em solid var(--c-gold);
-        padding-bottom: 10px;
         vertical-align: baseline;
       }
       .magic-word.is-revealing {
@@ -470,6 +468,15 @@
         color: #f55;
         margin-top: 10px;
         font-weight: bold;
+      }
+      /* 強制特殊符號寬度與國字一致 */
+      .mask-symbol {
+        display: inline-block;
+        width: 1em; /* 強制寬度等於當前字體大小 (一個字的寬) */
+        text-align: center; /* 讓星星在格子裡置中 */
+        font-family: "Courier New", Courier, monospace; /* 或是設為等寬字體 */
+        vertical-align: middle; /* 微調垂直對齊 */
+        transform: translateY(-5%); /* 視情況微調上下位置 */
       }
     </style>
   </head>
@@ -1008,9 +1015,15 @@
           let html = line.rawText;
           if (line.hasMask) {
             html = html.replace(/\*(.*?)\*/g, (match, answerContent) => {
+              // 如果已回答，顯示答案
+              // 如果未回答，顯示 ★ (數量跟字數一樣)
+              // ★ 重點：這裡加入了 class="mask-symbol"
               const content = line.isAnswered
                 ? answerContent
-                : "＊".repeat(answerContent.length);
+                : '<span class="mask-symbol">★</span>'.repeat(
+                    answerContent.length
+                  );
+
               let stateClass =
                 line.isAnswered && state.roundState === RoundState.REVEALING
                   ? "is-revealing"

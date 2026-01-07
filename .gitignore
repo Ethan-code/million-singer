@@ -2,7 +2,6 @@
 node_modules/
 dist/
 out/
-build/
 .DS_Store
 
 # 忽略所有歌曲與題庫

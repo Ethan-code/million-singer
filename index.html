@@ -593,38 +593,15 @@
       // ★★★ 核心路徑管理系統 (Path Manager) ★★★
       // ==========================================
 
-      // 1. 判斷是否為打包後的環境
-      // 如果 __dirname 包含 'app.asar'，代表程式正在被封裝的執行檔中跑 -> 是打包版
       const isPackaged = __dirname.includes("app.asar");
-
-      // 2. 決定「外部資源」的根目錄
-      // 開發模式 (Dev)  -> 使用專案根目錄 (__dirname)
-      // 打包模式 (Prod) -> 使用執行檔旁邊的 resources 資料夾 (process.resourcesPath)
       const RESOURCE_ROOT = isPackaged ? process.resourcesPath : __dirname;
-
-      // 3. 統一的路徑取得函式 (所有檔案讀取都必須透過這裡！)
       const PathHelper = {
-        // 取得 playlists 資料夾的絕對路徑
         getPlaylistsDir: () => path.join(RESOURCE_ROOT, "playlists"),
-
-        // 取得 songs 資料夾的絕對路徑
         getSongsDir: () => path.join(RESOURCE_ROOT, "songs"),
-
-        // 取得某個播放清單檔案的完整路徑
         getPlaylistFile: (filename) =>
           path.join(RESOURCE_ROOT, "playlists", filename),
-
-        // 取得某首歌曲的完整路徑
         getSongFile: (filename) => path.join(RESOURCE_ROOT, "songs", filename),
       };
-
-      // --- 除錯用 (按 Ctrl+Shift+I 查看) ---
-      console.log("=== 環境診斷 ===");
-      console.log("是否已打包 (isPackaged):", isPackaged);
-      console.log("資源根目錄 (RESOURCE_ROOT):", RESOURCE_ROOT);
-      console.log("Playlists 目標路徑:", PathHelper.getPlaylistsDir());
-      console.log("Songs 目標路徑:", PathHelper.getSongsDir());
-      console.log("==================");
 
       // ==========================================
 
@@ -687,9 +664,7 @@
       };
 
       function scanPlaylists() {
-        // ★ 修改：使用 PathHelper 取得路徑
         const playlistDir = PathHelper.getPlaylistsDir();
-
         els.playlistList.innerHTML = "";
         els.status.textContent = "";
         state.selectedFile = null;
@@ -697,10 +672,9 @@
         state.selectionIndex = -1;
         els.btns.start.classList.add("btn--disabled");
 
-        // 檢查資料夾是否存在
         if (!fs.existsSync(playlistDir)) {
           try {
-            fs.mkdirSync(playlistDir, { recursive: true }); // recursive 確保父目錄存在
+            fs.mkdirSync(playlistDir, { recursive: true });
             els.playlistList.innerHTML =
               '<div style="color:#f55; padding:10px; text-align:center;">找不到 playlists 資料夾，已自動建立。</div>';
           } catch (e) {
@@ -750,10 +724,7 @@
 
       function loadSelectedPlaylist() {
         if (!state.selectedFile) return;
-
-        // ★ 修改：使用 PathHelper 讀取檔案
         const filePath = PathHelper.getPlaylistFile(state.selectedFile);
-
         try {
           const data = fs.readFileSync(filePath, "utf-8");
           const pl = JSON.parse(data);
@@ -900,7 +871,6 @@
 
         let songUrl = song.url;
         if (!songUrl && song.filename) {
-          // ★ 修改：使用 PathHelper 取得音樂路徑
           songUrl = PathHelper.getSongFile(song.filename);
         }
 
@@ -1047,7 +1017,6 @@
           els.displays.lyricContainer.classList.add("hidden");
           els.displays.idleRound.textContent = `ROUND ${state.currentTrackIndex + 1}`;
           els.titlePanel.classList.remove("visible");
-
           els.warningOverlay.classList.remove("active");
           els.warningIcon.classList.remove("active");
         } else {
@@ -1069,17 +1038,34 @@
           let html = line.rawText;
           if (line.hasMask) {
             html = html.replace(/\*(.*?)\*/g, (match, answerContent) => {
-              const content = line.isAnswered
-                ? answerContent
-                : '<span class="mask-symbol">★</span>'.repeat(
-                    answerContent.length
-                  );
-
-              let stateClass =
-                line.isAnswered && state.roundState === RoundState.REVEALING
-                  ? "is-revealing"
-                  : "";
-              return `<span class="magic-word ${stateClass}">${content}</span>`;
+              if (line.isAnswered) {
+                // 已回答：顯示文字
+                let stateClass =
+                  state.roundState === RoundState.REVEALING ? "is-revealing" : "";
+                return `<span class="magic-word ${stateClass}">${answerContent}</span>`;
+              } else {
+                // 未回答：顯示星星
+                // ★★★ 核心修改：判斷是否為英文單字 (只含 ASCII 字符) ★★★
+                // 1. 用空白鍵分割
+                let parts = answerContent.split(" ");
+                let stars = parts.map((part) => {
+                  if (!part) return ""; // 處理多餘空格
+                  
+                  // 判斷該「單字」是否只包含半形英文/數字/符號
+                  // 這裡使用正則表達式 [\x00-\xff] 來判斷
+                  if (/^[\x00-\xff]*$/.test(part)) {
+                     // 是英文單字 -> 只給一顆星
+                     return '<span class="mask-symbol">★</span>';
+                  } else {
+                     // 是中文或其他 -> 依字數給星
+                     return '<span class="mask-symbol">★</span>'.repeat(part.length);
+                  }
+                });
+                
+                // 重新組合，保留單字間的空格
+                let maskedHtml = stars.join(' ');
+                return `<span class="magic-word">${maskedHtml}</span>`;
+              }
             });
           }
           els.displays.lyricLine.innerHTML = html;

@@ -1,0 +1,50 @@
+name: Build Electron App
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    # 這個設定檔會同時跑 Windows 和 macOS 兩台電腦
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm install
+
+      # --- 針對 Windows 的打包指令 ---
+      - name: Build for Windows
+        if: matrix.os == 'windows-latest'
+        run: npm run build:win
+
+      # --- 針對 macOS 的打包指令 ---
+      - name: Build for macOS
+        if: matrix.os == 'macos-latest'
+        run: npm run build:mac
+
+      # --- 上傳打包結果 (Artifacts) ---
+      # 這樣你才能下載打包好的檔案
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: million-singer-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.zip
+            dist/*.dmg
+          retention-days: 5

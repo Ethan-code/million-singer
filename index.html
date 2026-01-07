@@ -2,7 +2,7 @@
 <html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
-    <title>百萬大歌星 (標題滑入版)</title>
+    <title>百萬大歌星 (無框質感版)</title>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;"
@@ -16,7 +16,9 @@
         --c-panel: #222;
         --c-text: #fff;
         --c-border: #444;
-        --c-danger: #c00;
+        --c-danger: #ff4444;
+        --c-success: #44ff44;
+        --c-active: #44ccff;
       }
       * {
         box-sizing: border-box;
@@ -87,6 +89,7 @@
         opacity: 0.3;
         pointer-events: none;
         filter: grayscale(1);
+        cursor: not-allowed;
       }
       .btn--icon {
         width: 48px;
@@ -138,7 +141,7 @@
         height: 100%;
       }
 
-      /* 1. Header (包含 Visualizer) */
+      /* Header */
       .header {
         position: absolute;
         top: 0;
@@ -146,8 +149,9 @@
         width: 100%;
         height: 100px;
         display: grid;
-        grid-template-columns: 200px 1fr 200px; /* 左中右佈局 */
-        align-items: center;
+        /* Grid 設定：左、中、右 */
+        grid-template-columns: 200px 1fr 200px;
+        align-items: center; /* 確保垂直置中 */
         padding: 0 40px;
         z-index: 50;
         pointer-events: none;
@@ -166,16 +170,57 @@
         text-align: center;
       }
 
+      /* 核心修改：狀態列改為無框風格 */
       .header__status {
-        font-size: 1.2rem;
-        color: #888;
-        font-weight: bold;
+        font-size: 1.5rem; /* 字體放大，跟左邊 Round 一樣大 */
+        font-weight: 900; /* 加粗 */
         text-transform: uppercase;
-        letter-spacing: 1px;
-        text-align: right;
+        letter-spacing: 2px;
+        text-align: right; /* 靠右對齊 */
+        /* 移除邊框和背景 */
+        background: transparent;
+        border: none;
+        transition: all 0.3s;
+        /* 確保它垂直置中 */
+        align-self: center;
       }
 
-      /* 2. Visualizer (在 Header 中間) */
+      /* 狀態顏色改用 Text Shadow 發光效果 */
+      .status--ready {
+        color: var(--c-success);
+        text-shadow: 0 0 15px var(--c-success);
+      }
+      .status--playing {
+        color: var(--c-active);
+        text-shadow: 0 0 15px var(--c-active);
+      }
+      .status--waiting {
+        color: var(--c-danger);
+        text-shadow: 0 0 15px var(--c-danger);
+        animation: pulseText 1s infinite;
+      }
+      .status--correct {
+        color: var(--c-gold);
+        text-shadow: 0 0 20px var(--c-gold);
+      }
+      .status--finished {
+        color: #888;
+        text-shadow: none;
+      }
+
+      @keyframes pulseText {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+
+      /* Visualizer */
       .visualizer {
         display: flex;
         gap: 8px;
@@ -210,11 +255,11 @@
         }
       }
 
-      /* 3. 右側標題滑出區塊 (Title Panel) - 這裡套用了之前的 Answer Panel 效果 */
+      /* 標題滑入區塊 */
       .title-panel {
         position: fixed;
         right: 0;
-        bottom: 150px; /* 位於控制列上方 */
+        bottom: 150px;
         background: rgba(0, 0, 0, 0.9);
         border: 4px solid var(--c-gold);
         border-right: none;
@@ -223,7 +268,7 @@
         padding-right: 60px;
         color: #fff;
         box-shadow: -10px 10px 50px rgba(0, 0, 0, 0.8);
-        transform: translateX(120%); /* 預設藏在外面 */
+        transform: translateX(120%);
         transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         z-index: 100;
         display: flex;
@@ -231,11 +276,9 @@
         justify-content: center;
         min-width: 300px;
       }
-      /* 滑入狀態 */
       .title-panel.visible {
         transform: translateX(0);
       }
-
       .title-label {
         font-size: 0.9rem;
         color: var(--c-gold);
@@ -281,7 +324,6 @@
         }
       }
 
-      /* 4. 恢復原本的 ＊ 遮罩效果 */
       .magic-word {
         display: inline-block;
         color: var(--c-gold);
@@ -756,7 +798,8 @@
       function togglePlay() {
         if (
           state.roundState === RoundState.LOCKED ||
-          state.roundState === RoundState.REVEALING
+          state.roundState === RoundState.REVEALING ||
+          state.roundState === RoundState.FINISHED
         )
           return;
         if (els.audio.paused) els.audio.play().catch(console.error);
@@ -816,25 +859,40 @@
 
       function updateUI() {
         els.displays.round.textContent = `ROUND ${state.currentTrackIndex + 1}`;
-        els.displays.status.textContent =
-          state.roundState === RoundState.LOCKED
-            ? "Waiting..."
-            : state.roundState === RoundState.REVEALING
-              ? "Correct!"
-              : state.roundState === RoundState.FINISHED
-                ? "Finished"
-                : state.roundState === RoundState.IDLE
-                  ? "Ready"
-                  : "";
 
-        // --- 控制標題滑入面板 ---
+        let statusText = "";
+        let statusClass = "";
+
+        switch (state.roundState) {
+          case RoundState.IDLE:
+            statusText = "🟢 READY";
+            statusClass = "status--ready";
+            break;
+          case RoundState.FLOW:
+            statusText = "▶ PLAYING";
+            statusClass = "status--playing";
+            break;
+          case RoundState.LOCKED:
+            statusText = "⏸ WAITING...";
+            statusClass = "status--waiting";
+            break;
+          case RoundState.REVEALING:
+            statusText = "✨ CORRECT!";
+            statusClass = "status--correct";
+            break;
+          case RoundState.FINISHED:
+            statusText = "🏁 FINISHED";
+            statusClass = "status--finished";
+            break;
+        }
+
+        els.displays.status.className = "header__status " + statusClass;
+        els.displays.status.textContent = statusText;
+
         els.titleText.textContent =
           state.playlist[state.currentTrackIndex]?.title || "";
-        if (state.isTitleVisible) {
-          els.titlePanel.classList.add("visible");
-        } else {
-          els.titlePanel.classList.remove("visible");
-        }
+        if (state.isTitleVisible) els.titlePanel.classList.add("visible");
+        else els.titlePanel.classList.remove("visible");
 
         if (state.isPlaying || state.roundState === RoundState.LOCKED)
           els.displays.visualizer.classList.add("active");
@@ -846,7 +904,7 @@
           els.displays.idleMsg.classList.remove("hidden");
           els.displays.lyricContainer.classList.add("hidden");
           els.displays.idleRound.textContent = `ROUND ${state.currentTrackIndex + 1}`;
-          els.titlePanel.classList.remove("visible"); // 閒置時隱藏標題
+          els.titlePanel.classList.remove("visible");
         } else {
           els.displays.idleMsg.classList.add("hidden");
           els.displays.lyricContainer.classList.remove("hidden");
@@ -855,11 +913,8 @@
         if (state.currentIndex !== -1 && state.lyricsData[state.currentIndex]) {
           const line = state.lyricsData[state.currentIndex];
           let html = line.rawText;
-
-          // 改回原來的 inline ＊ 揭曉
           if (line.hasMask) {
             html = html.replace(/\*(.*?)\*/g, (match, answerContent) => {
-              // 如果已揭曉：顯示文字；如果未揭曉：顯示 ＊＊＊
               const content = line.isAnswered
                 ? answerContent
                 : "＊".repeat(answerContent.length);
@@ -878,6 +933,16 @@
         els.btns.toggle.textContent = state.isPlaying
           ? "⏸ 暫停 (Space)"
           : "⏯ 播放 (Space)";
+
+        if (
+          state.roundState === RoundState.LOCKED ||
+          state.roundState === RoundState.FINISHED
+        ) {
+          els.btns.toggle.classList.add("btn--disabled");
+        } else {
+          els.btns.toggle.classList.remove("btn--disabled");
+        }
+
         if (state.roundState === RoundState.LOCKED)
           els.btns.reveal.classList.remove("btn--disabled");
         else els.btns.reveal.classList.add("btn--disabled");

@@ -32,16 +32,12 @@
       "icon": "build/icon.ico"
     },
     "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
+      "target": ["dmg", "zip"],
       "icon": "build/icon.icns",
       "minimumSystemVersion": "11.0",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "identity": null, 
+      "hardenedRuntime": false, 
+      "gatekeeperAssess": false
     },
     "dmg": {
       "universal": true,

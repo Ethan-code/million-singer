@@ -131,7 +131,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       el("button", { class: "btn btn--small", text: "← 返回題庫", onclick: () => close() }),
       refs.heading,
       el("span", { class: "spacer" }),
-      el("span", { class: "muted", text: "快捷鍵：Space 播放・↑↓ 選句・M 整句遮字・[ ] 微調 ±0.05 秒・P 從這句播・T 試停" }),
+      el("span", { class: "muted", text: "快捷鍵：Space 播放・↑↓ 選句・M 整句遮字・X 拆句・J 合併下一行・[ ] 微調・P 從這句播・T 試停" }),
       refs.save
     ),
     el(
@@ -191,6 +191,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
           { class: "ed-tools" },
           el("span", { class: "ed-tools__label", text: "時間" }),
           refs.tapBtn,
+          el("button", { class: "btn btn--small", text: "⏱ 自動補時間", title: "沒有時間的行，依前後句與字數估算", onclick: autoFill }),
           el("button", { class: "btn btn--small", text: "⇆ 全部平移", onclick: shiftAll }),
           el("button", { class: "btn btn--small", text: "↕ 依時間排序", onclick: sortLines }),
           el("button", { class: "btn btn--small", text: "＋ 新增一行", onclick: () => insertLine() })
@@ -635,6 +636,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
         el("button", { class: "btn btn--small", text: "+", title: `晚 ${NUDGE} 秒`, onclick: () => nudge(i, NUDGE) }),
         textInput,
         el("button", { class: "btn btn--small", text: "★", title: "整句遮字（先選取文字則只遮選取部分；再按一次取消）", onmousedown: (e) => e.preventDefault(), onclick: () => toggleMask(textInput) }),
+        el("button", { class: "btn btn--small", text: "✂", title: "拆句：從游標位置拆成兩行（沒放游標就從空白或中間拆）(X)", onmousedown: (e) => e.preventDefault(), onclick: () => splitLine(i, textInput) }),
         el("button", { class: "btn btn--small", text: "▶", title: "從這句前 1 秒播放 (P)", onclick: () => line.time !== null && playFrom(line.time - 1) }),
         masked ? el("button", { class: "btn btn--small btn--danger", text: "🎯", title: "試停 (T)", onclick: () => testStop(i) }) : el("span", { class: "ed-line__pad" }),
         el("button", { class: "btn btn--small", text: "🗑", title: "刪除這行", onclick: () => deleteLine(i) })
@@ -647,6 +649,62 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       rows.push(el("div", { class: "muted ed-empty", text: "還沒有歌詞。用上方「貼上」「匯入檔案」「線上搜尋」帶入，或按「新增一行」。" }));
     }
     refs.lines.replaceChildren(...rows);
+  }
+
+  // 拆句：游標在句中就從游標拆，否則從第一個空白（或標點）拆，都沒有就從中間拆。
+  // 後半句的時間依字數比例估算，之後再用試聽或打拍子修正。
+  function splitLine(i, input) {
+    const line = draft.lines[i];
+    if (!line) return;
+    const text = line.text;
+    const len = text.length;
+    let pos = -1;
+    if (input && (document.activeElement === input || ed.lastFocused === input)) {
+      const c = input.selectionStart ?? -1;
+      if (c > 0 && c < len) pos = c;
+    }
+    if (pos === -1) {
+      const m = /[ \u3000，,、。！？!?；;]/.exec(text.slice(1, -1));
+      pos = m ? m.index + 1 : Math.floor(len / 2);
+    }
+    let left = text.slice(0, pos);
+    let right = text.slice(pos);
+    // 拆在 *…* 中間：兩邊各自補上星號，遮字範圍不會壞掉
+    if ((left.match(/\*/g) || []).length % 2 === 1) {
+      left += "*";
+      right = "*" + right;
+    }
+    left = left.replace(/[ \u3000，,、]+$/, "").trim();
+    right = right.replace(/^[ \u3000，,、]+/, "").trim();
+    if (!left || !right || right === "**" || left === "**") {
+      toast("這裡拆不開，請把游標放在要拆的位置", "warning");
+      return;
+    }
+    let t2 = null;
+    if (line.time !== null) {
+      const next = draft.lines.slice(i + 1).find((l) => l.time !== null && l.time > line.time);
+      const end = next ? next.time : line.time + len * 0.4;
+      const ratio = lrc.stripMasks(left).length / Math.max(1, lrc.stripMasks(left).length + lrc.stripMasks(right).length);
+      t2 = round2(line.time + (end - line.time) * ratio);
+    }
+    line.text = left;
+    draft.lines.splice(i + 1, 0, { time: t2, text: right });
+    markDirty();
+    renderLines();
+    select(i + 1);
+    toast(t2 === null ? "已拆成兩行" : `已拆成兩行，後半句時間估為 ${lrc.formatTime(t2)}，請試聽確認`);
+  }
+
+  // 合併：把下一行接到這一行後面（拆錯時用）
+  function joinLine(i) {
+    const line = draft.lines[i];
+    const next = draft.lines[i + 1];
+    if (!line || !next) return;
+    line.text = `${line.text} ${next.text}`.trim();
+    draft.lines.splice(i + 1, 1);
+    markDirty();
+    renderLines();
+    select(i);
   }
 
   function nudge(i, d) {
@@ -677,6 +735,17 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     draft.lines.sort((a, b) => (a.time ?? Infinity) - (b.time ?? Infinity));
     markDirty();
     renderLines();
+  }
+
+  function autoFill() {
+    const n = lrc.fillMissingTimes(draft.lines, { startTime: draft.startTime });
+    if (!n) {
+      toast("每一行都已經有時間了");
+      return;
+    }
+    markDirty();
+    renderLines();
+    toast(`補了 ${n} 行的時間（依字數估算）。\n請試聽確認；遮字句一定要用 🎯 試停校正。`);
   }
 
   async function shiftAll() {
@@ -1013,6 +1082,12 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       }
       case "KeyT":
         testStop(ed.selected);
+        break;
+      case "KeyX":
+        splitLine(ed.selected, refs.lines.children[ed.selected]?.querySelector(".ed-line__text"));
+        break;
+      case "KeyJ":
+        joinLine(ed.selected);
         break;
       case "KeyM": {
         const input = refs.lines.children[ed.selected]?.querySelector(".ed-line__text");

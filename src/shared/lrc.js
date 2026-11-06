@@ -118,7 +118,41 @@ function maskStarCounts(answer) {
     .map((part) => (/^[\x00-\xff]*$/.test(part) ? 1 : [...part].length));
 }
 
+// 補上沒有時間的行：夾在兩個有時間的行之間就依字數比例分配；
+// 後面沒有參考點時，每個字抓 secondsPerChar 秒往後推。回傳補了幾行。
+// lines: [{ time: number|null, text }]，會直接修改。
+function fillMissingTimes(lines, { secondsPerChar = 0.4, startTime = 0 } = {}) {
+  const len = (l) => Math.max(1, stripMasks(l.text).replace(/\s/g, "").length);
+  let filled = 0;
+  let i = 0;
+  while (i < lines.length) {
+    if (lines[i].time !== null) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < lines.length && lines[j].time === null) j++;
+    const prev = lines[i - 1];
+    const next = lines[j];
+    const run = lines.slice(i, j);
+    // 起點：前一行的時間（並跳過前一行本身的長度）；沒有前一行就從 startTime
+    const from = prev ? prev.time : startTime;
+    const weights = [prev ? len(prev) : 0, ...run.map(len)];
+    const total = weights.reduce((a, b) => a + b, 0);
+    const to = next ? next.time : from + total * secondsPerChar;
+    let acc = weights[0];
+    run.forEach((line, k) => {
+      line.time = Math.round((from + ((to - from) * acc) / total) * 100) / 100;
+      acc += weights[k + 1];
+      filled++;
+    });
+    i = j;
+  }
+  return filled;
+}
+
 module.exports = {
+  fillMissingTimes,
   formatTime,
   parseTimeText,
   parseLRC,

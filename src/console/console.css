@@ -542,7 +542,7 @@ h3 {
 }
 .ed-line {
   display: grid;
-  grid-template-columns: 108px auto auto 1fr auto auto auto auto;
+  grid-template-columns: 108px auto auto 1fr auto auto auto auto auto;
   gap: 4px;
   align-items: center;
   padding: 3px 4px;

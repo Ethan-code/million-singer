@@ -28,8 +28,6 @@ const TITLE_SHOW_MS = 5000;
 const STATE_PUBLISH_MS = 200;
 const POINTS_PER_CHAR = 100;
 const TILE_FLIP_GAP = 0.12; // 秒
-// KTV 逐字變色：每個字大約唱多久（LRC 只有句首時間，用估算）
-const SECONDS_PER_UNIT = 0.42;
 
 const RoundState = {
   IDLE: "IDLE",
@@ -98,8 +96,8 @@ const els = {
   idle: $("idle"),
   idleRound: $("idle-round"),
   idleSub: $("idle-sub"),
-  ktv: $("ktv"),
-  slots: [$("ktv-a"), $("ktv-b")],
+  lyrics: $("lyrics"),
+  lyricLine: $("lyric-line"),
   turn: $("turn"),
   turnTeam: $("turn-team"),
   turnPoints: $("turn-points"),
@@ -234,7 +232,7 @@ function loadSong(index) {
   state.lastError = null;
   setCountdown(0);
   if (state.resultsVisible) showResults(false);
-  resetKtv();
+  resetLyric();
 
   const fileExists = (f) => library.songFileExists(state.dataDir, f);
   state.source = resolveSource(song, { fileExists, prefer: state.prefer });
@@ -777,7 +775,7 @@ function updateUI() {
 
   // Round 開場
   els.idle.classList.toggle("hidden", !isIdle);
-  els.ktv.classList.toggle("hidden", isIdle);
+  els.lyrics.classList.toggle("hidden", isIdle);
   if (isIdle) {
     const n = String(state.currentTrackIndex + 1);
     if (els.idleRound.textContent !== n) {
@@ -789,7 +787,7 @@ function updateUI() {
   }
   if (state.roundState !== RoundState.FLOW) setWarning(false);
 
-  renderKtv();
+  renderLyric();
   renderTurn();
 
   els.btns.toggle.textContent = isIdle ? "▶ 開始" : state.isPlaying ? "⏸ 暫停" : "⏯ 播放";
@@ -810,15 +808,13 @@ function restartAnimation(node) {
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-// ---------- KTV 兩行歌詞 ----------
-// 偶數句在上排（靠左）、奇數句在下排（靠右），像 KTV 一樣輪替。
-// 顯示「正在唱的句子」與「下一句」；遮字句因此會提前一句以空白牌出現。
-const slotLine = [-2, -2]; // 每排目前顯示第幾句
+// ---------- 歌詞（一次一句，置中大字） ----------
+// 歌詞 DOM 只在換句時重建；揭曉時只翻牌，動畫才不會被打斷。
+let shownLine = -2;
 
-function resetKtv() {
-  slotLine[0] = slotLine[1] = -2;
-  sungKey = "";
-  els.slots.forEach((s) => s.replaceChildren());
+function resetLyric() {
+  shownLine = -2;
+  els.lyricLine.replaceChildren();
 }
 
 function buildLineNode(line) {
@@ -856,45 +852,19 @@ function buildLineNode(line) {
   return node;
 }
 
-function renderKtv() {
+function renderLyric() {
   const cur = state.currentIndex;
-  const lines = state.lyricsData;
-  const show = cur >= 0 ? [cur, cur + 1] : [0];
-  for (const idx of show) {
-    if (!lines[idx]) continue;
-    const slot = idx % 2;
-    if (slotLine[slot] !== idx) {
-      slotLine[slot] = idx;
-      const el = els.slots[slot];
-      el.replaceChildren(buildLineNode(lines[idx]));
-      restartAnimation(el);
-    }
+  const line = state.lyricsData[cur];
+  if (cur !== shownLine) {
+    shownLine = cur;
+    els.lyricLine.replaceChildren(...(line ? [buildLineNode(line)] : []));
+    if (line) restartAnimation(els.lyricLine);
   }
-  // 最後一句時，另一排不留舊歌詞
-  if (cur >= 0 && !lines[cur + 1]) {
-    const other = (cur + 1) % 2;
-    if (slotLine[other] !== cur) {
-      slotLine[other] = -2;
-      els.slots[other].replaceChildren();
-    }
-  }
-  els.slots.forEach((el, slot) => {
-    const idx = slotLine[slot];
-    const isCurrent = idx === cur && cur >= 0;
-    el.classList.toggle("is-current", isCurrent);
-    el.classList.toggle("is-next", !isCurrent && idx >= 0);
-    el.classList.toggle("is-locked", isCurrent && state.roundState === RoundState.LOCKED);
-    el.classList.toggle("is-masked", idx >= 0 && !!lines[idx]?.hasMask && !lines[idx].isAnswered);
-  });
-}
-
-function currentSlotEl() {
-  const slot = state.currentIndex % 2;
-  return state.currentIndex >= 0 && slotLine[slot] === state.currentIndex ? els.slots[slot] : null;
+  els.lyricLine.classList.toggle("is-locked", state.roundState === RoundState.LOCKED);
 }
 
 function currentTiles() {
-  return [...(currentSlotEl()?.querySelectorAll(".tile") || [])];
+  return state.currentIndex >= 0 && shownLine === state.currentIndex ? [...els.lyricLine.querySelectorAll(".tile")] : [];
 }
 
 function flipTiles(type) {
@@ -907,25 +877,6 @@ function flipTiles(type) {
     n++;
   }
   return n;
-}
-
-// KTV 逐字變色：依句子長度估算唱到第幾個字
-let sungKey = "";
-function updateSung(t) {
-  const cur = state.currentIndex;
-  const line = state.lyricsData[cur];
-  const el = currentSlotEl();
-  if (!line || !el || state.roundState === RoundState.LOCKED || state.roundState === RoundState.IDLE) return;
-  const units = el.querySelectorAll(".u");
-  const next = state.lyricsData[cur + 1];
-  const natural = Math.max(1.2, units.length * SECONDS_PER_UNIT);
-  const span = next ? Math.min(next.time - line.time, natural) : natural;
-  const progress = Math.max(0, Math.min(1, (t - line.time) / Math.max(0.3, span)));
-  const count = Math.round(progress * units.length);
-  const key = `${state.currentTrackIndex}:${cur}:${count}`;
-  if (key === sungKey) return;
-  sungKey = key;
-  units.forEach((u, i) => u.classList.toggle("is-sung", i < count));
 }
 
 // ---------- 輪到誰 ----------
@@ -1166,7 +1117,6 @@ function frame() {
     if (analyser) bars.forEach((bar) => (bar.style.transform = ""));
     scene?.setLevel(state.isPlaying ? 0.35 : 0);
   }
-  if (player && state.active) updateSung(player.currentTime);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

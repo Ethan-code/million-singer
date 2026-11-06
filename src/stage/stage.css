@@ -260,46 +260,23 @@ body {
   }
 }
 
-/* ---------- KTV 兩行歌詞 ---------- */
-.ktv {
+/* ---------- 歌詞（一次一句，置中大字） ---------- */
+.lyrics {
   width: 100%;
   height: 100%;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 4vh;
-  padding: 0 5vw;
+  padding: 0 4vw;
 }
-.ktv-line {
-  min-height: 1.2em;
-  font-size: 13vh;
+.lyric-line {
+  font-size: 20vh;
   font-weight: 900;
   line-height: 1.15;
+  text-align: center;
   white-space: nowrap;
-  transition: opacity 0.4s, transform 0.4s, filter 0.4s;
   animation: lineIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.15);
   transform-origin: 50% 100%;
-}
-.ktv-line--a {
-  text-align: left;
-}
-.ktv-line--b {
-  text-align: right;
-}
-.ktv-line.is-next {
-  opacity: 0.55;
-  transform: scale(0.88);
-  filter: blur(0.5px);
-}
-.ktv-line--a.is-next {
-  transform-origin: 0 50%;
-}
-.ktv-line--b.is-next {
-  transform-origin: 100% 50%;
-}
-.ktv-line.is-next.is-masked {
-  opacity: 0.85;
-  filter: none;
 }
 @keyframes lineIn {
   from {
@@ -311,29 +288,20 @@ body {
   display: inline-block;
 }
 .ktv-text[data-size="m"] {
-  font-size: 0.82em;
+  font-size: 0.75em;
 }
 .ktv-text[data-size="s"] {
-  font-size: 0.66em;
+  font-size: 0.58em;
 }
 .ktv-text[data-size="xs"] {
-  font-size: 0.5em;
+  font-size: 0.42em;
 }
 .u {
   color: #fff;
-  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(0, 0, 0, 0.9);
-  transition: color 0.12s, text-shadow 0.12s;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 50px rgba(255, 204, 0, 0.55);
 }
-/* 唱過的字：KTV 變色 */
-.u.is-sung {
-  color: var(--c-gold);
-  text-shadow: 0 4px 0 #6b5300, 0 0 30px rgba(255, 204, 0, 0.8);
-}
-.game.is-video .ktv-line {
-  font-size: 7vh;
-}
-.game.is-video .ktv {
-  gap: 1.5vh;
+.game.is-video .lyric-line {
+  font-size: 10vh;
 }
 .game.is-video .idle__number {
   font-size: 14vh;
@@ -382,16 +350,8 @@ body {
     0 0.06em 0.3em rgba(0, 0, 0, 0.7), 0 0 0.5em rgba(255, 204, 0, 0.45);
   text-shadow: 0 0 0.3em #fff;
 }
-.ktv-line.is-next .tile__front {
-  animation: tileTease 1.6s ease-in-out infinite;
-}
-.ktv-line.is-locked .tile__front {
+.lyric-line.is-locked .tile__front {
   animation: tileWait 0.9s ease-in-out infinite;
-}
-@keyframes tileTease {
-  50% {
-    transform: translateY(-0.04em);
-  }
 }
 @keyframes tileWait {
   50% {

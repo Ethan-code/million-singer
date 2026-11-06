@@ -119,3 +119,20 @@ test("writePlaylist keeps timestamped backups", () => {
   assert.equal(library.readPlaylist(dir, file).songs[0].title, "a");
   fs.rmSync(dir, { recursive: true });
 });
+
+test("fillMissingTimes interpolates by character count", () => {
+  const lines = [
+    { time: 10, text: "一二三四" },
+    { time: null, text: "五六七八" },
+    { time: 20, text: "下一句" },
+    { time: null, text: "尾巴兩句" },
+    { time: null, text: "*最後*" },
+  ];
+  assert.equal(lrc.fillMissingTimes(lines), 3);
+  assert.equal(lines[1].time, 15); // 10 + (20-10) * 4/8
+  assert.equal(lines[3].time, 21.2); // 20 + 3 字 × 0.4
+  assert.equal(lines[4].time, 22.8); // 再 + 4 字 × 0.4
+  const head = [{ time: null, text: "ab" }, { time: 4, text: "c" }];
+  lrc.fillMissingTimes(head, { startTime: 2 });
+  assert.equal(head[0].time, 2);
+});

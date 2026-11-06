@@ -53,27 +53,44 @@
       <main class="stage-main">
         <div id="video-box" class="video-box hidden"></div>
         <div class="lyrics-area">
-          <div id="idle-msg" class="idle">
+          <div id="idle" class="idle">
             <div class="idle__label">ROUND</div>
-            <div id="idle-round-text" class="idle__number">1</div>
+            <div id="idle-round" class="idle__number">1</div>
             <div id="idle-sub" class="idle__sub"></div>
           </div>
-          <div id="lyric-container" class="lyric-stage hidden">
-            <div id="lyric-line" class="lyric-line"></div>
+          <div id="ktv" class="ktv hidden">
+            <div id="ktv-a" class="ktv-line ktv-line--a"></div>
+            <div id="ktv-b" class="ktv-line ktv-line--b"></div>
           </div>
         </div>
       </main>
 
+      <!-- 輪到誰接唱、這句值多少分 -->
+      <div id="turn" class="turn hidden">
+        <div id="turn-team" class="turn__team"></div>
+        <div id="turn-points" class="turn__points"></div>
+      </div>
+      <div id="countdown" class="countdown hidden"></div>
+      <div id="floats" class="floats"></div>
+
       <div id="scoreboard" class="scoreboard hidden"></div>
+
+      <!-- 結算頒獎台 -->
+      <div id="results" class="results hidden">
+        <div class="results__title">🏆 最終結果</div>
+        <div id="podium" class="podium"></div>
+      </div>
 
       <nav class="controls">
         <button id="btn-prev" class="btn btn--icon">⏮</button>
-        <button id="btn-toggle" class="btn" style="min-width: 140px">▶ 開始 (Space)</button>
+        <button id="btn-toggle" class="btn" style="min-width: 110px">▶ 開始</button>
         <button id="btn-reveal" class="btn btn--primary btn--disabled">✨ 答對 (Enter)</button>
         <button id="btn-answer" class="btn btn--answer btn--disabled">📖 答案 (A)</button>
-        <button id="btn-reset" class="btn">🔄 重來 (R)</button>
+        <button id="btn-hint" class="btn btn--disabled">💡 提示 (I)</button>
+        <button id="btn-replay" class="btn btn--disabled">⏪ 重聽 (B)</button>
+        <button id="btn-reset" class="btn">🔄 (R)</button>
         <button id="btn-next" class="btn btn--icon">⏭</button>
-        <button id="btn-exit" class="btn btn--danger">✖ 結束 (H)</button>
+        <button id="btn-exit" class="btn btn--danger">✖ (H)</button>
       </nav>
     </div>
 

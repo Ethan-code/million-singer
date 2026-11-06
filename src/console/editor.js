@@ -131,7 +131,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       el("button", { class: "btn btn--small", text: "← 返回題庫", onclick: () => close() }),
       refs.heading,
       el("span", { class: "spacer" }),
-      el("span", { class: "muted", text: "快捷鍵：Space 播放・↑↓ 選句・[ ] 微調 ±0.05 秒・P 從這句播・T 試停" }),
+      el("span", { class: "muted", text: "快捷鍵：Space 播放・↑↓ 選句・M 整句遮字・[ ] 微調 ±0.05 秒・P 從這句播・T 試停" }),
       refs.save
     ),
     el(
@@ -575,23 +575,26 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     if (scroll) refs.lines.children[ed.selected]?.scrollIntoView({ block: "nearest" });
   }
 
+  // ★：沒選字＝整句遮（最常用）；選了字＝只遮選取的部分；游標在 *…* 裡＝取消那段遮字
   function toggleMask(input) {
     const i = Number(input.dataset.index);
     const v = input.value;
     const a = input.selectionStart ?? 0;
     const b = input.selectionEnd ?? 0;
-    if (b > a) {
+    const focused = document.activeElement === input || ed.lastFocused === input;
+    if (focused && b > a) {
       input.value = v.slice(0, a) + "*" + v.slice(a, b) + "*" + v.slice(b);
-    } else {
-      // 游標在 *…* 裡面：取消遮字
+    } else if (lrc.hasMask(v)) {
+      // 已有遮字：游標在某段裡就取消那段，否則全部取消
       const before = v.lastIndexOf("*", a - 1);
       const after = v.indexOf("*", a);
       const starsBefore = (v.slice(0, Math.max(0, before)).match(/\*/g) || []).length;
-      if (before === -1 || after === -1 || starsBefore % 2 === 1) {
-        toast("先在歌詞裡選取要遮的字，再按 ★", "warning");
-        return;
-      }
-      input.value = v.slice(0, before) + v.slice(before + 1, after) + v.slice(after + 1);
+      const inside = focused && before !== -1 && after !== -1 && starsBefore % 2 === 0;
+      input.value = inside ? v.slice(0, before) + v.slice(before + 1, after) + v.slice(after + 1) : lrc.stripMasks(v);
+    } else {
+      const text = v.trim();
+      if (!text) return;
+      input.value = `*${text}*`;
     }
     draft.lines[i].text = input.value;
     markDirty();
@@ -618,6 +621,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       });
       const textInput = el("input", { class: "input ed-line__text", value: line.text });
       textInput.dataset.index = String(i);
+      textInput.addEventListener("focus", () => (ed.lastFocused = textInput));
       textInput.addEventListener("input", () => {
         line.text = textInput.value;
         row.classList.toggle("is-masked", lrc.hasMask(line.text));
@@ -630,7 +634,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
         el("button", { class: "btn btn--small", text: "−", title: `早 ${NUDGE} 秒`, onclick: () => nudge(i, -NUDGE) }),
         el("button", { class: "btn btn--small", text: "+", title: `晚 ${NUDGE} 秒`, onclick: () => nudge(i, NUDGE) }),
         textInput,
-        el("button", { class: "btn btn--small", text: "★", title: "選取文字後按：設為遮字（再按一次取消）", onmousedown: (e) => e.preventDefault(), onclick: () => toggleMask(textInput) }),
+        el("button", { class: "btn btn--small", text: "★", title: "整句遮字（先選取文字則只遮選取部分；再按一次取消）", onmousedown: (e) => e.preventDefault(), onclick: () => toggleMask(textInput) }),
         el("button", { class: "btn btn--small", text: "▶", title: "從這句前 1 秒播放 (P)", onclick: () => line.time !== null && playFrom(line.time - 1) }),
         masked ? el("button", { class: "btn btn--small btn--danger", text: "🎯", title: "試停 (T)", onclick: () => testStop(i) }) : el("span", { class: "ed-line__pad" }),
         el("button", { class: "btn btn--small", text: "🗑", title: "刪除這行", onclick: () => deleteLine(i) })
@@ -1010,6 +1014,11 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       case "KeyT":
         testStop(ed.selected);
         break;
+      case "KeyM": {
+        const input = refs.lines.children[ed.selected]?.querySelector(".ed-line__text");
+        if (input) toggleMask(input);
+        break;
+      }
       case "KeyS":
         if (e.ctrlKey) {
           e.preventDefault();

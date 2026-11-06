@@ -310,6 +310,16 @@ h3 {
 .gp-answer.is-soon {
   border-color: var(--c-gold);
 }
+.gp-answer__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.gp-answer__meta {
+  color: var(--c-gold);
+  font-weight: bold;
+}
 .gp-answer__label {
   color: var(--c-muted);
   font-size: 0.9rem;
@@ -347,6 +357,16 @@ h3 {
   padding: 10px 14px;
   background: #151515;
   min-width: 170px;
+}
+.team-card {
+  cursor: pointer;
+}
+.team-card.is-turn {
+  border-color: #ff3fa4;
+  box-shadow: 0 0 16px rgba(255, 63, 164, 0.4);
+}
+.team-card.is-turn .team-card__name::before {
+  content: "🎤 ";
 }
 .team-card__name {
   color: var(--c-gold);

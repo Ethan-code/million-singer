@@ -310,7 +310,7 @@ function guarded(cmd, label = "按鈕", extra = {}) {
 const STATUS_TEXT = {
   IDLE: "🟢 準備",
   FLOW: "▶ 播放中",
-  LOCKED: "⏸ 等待作答",
+  LOCKED: "🎤 接唱中",
   REVEALING: "✨ 揭曉",
   FINISHED: "🏁 本首結束",
 };
@@ -354,8 +354,14 @@ function renderGame(g) {
       ? "⏸ 停住了！答案是"
       : `下一個遮字（${f.inSeconds.toFixed(1)} 秒後）`;
     $("gp-answer-text").textContent = f.answers.join("　");
-    $("gp-answer-line").innerHTML = highlightAnswers(f.text);
+    // 整句遮字時，下面那行和答案一樣，不重複顯示
+    const whole = lrc.stripMasks(f.text).trim() === f.answers.join(" ").trim();
+    $("gp-answer-line").innerHTML = whole ? "" : highlightAnswers(f.text);
+    const team = g.turn >= 0 ? g.teams[g.turn]?.name : "";
+    $("gp-answer-meta").textContent =
+      (team ? `輪到 ${team}・` : "") + `${f.points} 分` + (f.hinted ? `（已提示 ${f.hinted} 字）` : "");
   } else {
+    $("gp-answer-meta").textContent = "";
     $("gp-answer-label").textContent = g.maskCount ? "這首的遮字都答完了" : "這首沒有遮字";
     $("gp-answer-text").textContent = "—";
     $("gp-answer-line").innerHTML = g.currentLine ? highlightAnswers(g.currentLine.text) : "";
@@ -367,6 +373,10 @@ function renderGame(g) {
   $("gp-toggle").disabled = locked || g.roundState === "FINISHED" || !g.sourceType;
   $("gp-correct").disabled = !locked;
   $("gp-reveal").disabled = !locked;
+  $("gp-hint").disabled = !locked || !f || f.hinted >= f.units - 1;
+  $("gp-replay").disabled = !locked;
+  $("gp-mute").textContent = g.sfxMuted ? "🔇 音效 (M)" : "🔊 音效 (M)";
+  $("gp-results").textContent = g.resultsVisible ? "✖ 關閉結果 (P)" : "🏆 公布結果 (P)";
   $("gp-prev").disabled = g.roundIndex === 0;
   $("gp-next").disabled = g.roundIndex >= g.roundCount - 1;
   $("gp-scoreboard").classList.toggle("btn--primary", g.scoreboardVisible && g.teams.length > 0);
@@ -393,25 +403,29 @@ function renderGame(g) {
     );
   }
 
-  renderTeams(g.teams);
+  renderTeams(g.teams, g.turn);
 }
 
 let lastTeamsKey = "";
-function renderTeams(teams) {
-  const key = JSON.stringify(teams);
+function renderTeams(teams, turn) {
+  const key = JSON.stringify([teams, turn]);
   if (key === lastTeamsKey) return;
   lastTeamsKey = key;
   $("gp-teams").replaceChildren(
     ...teams.map((t, i) =>
       el(
         "div",
-        { class: "team-card" },
+        {
+          class: "team-card" + (i === turn ? " is-turn" : ""),
+          title: "點一下設為輪到這隊",
+          onclick: (e) => e.target.tagName !== "BUTTON" && sendCommand({ cmd: "turn", team: i }),
+        },
         el("div", { class: "team-card__name", text: t.name }),
         el("div", { class: "team-card__score", text: String(t.score) }),
         el(
           "div",
           { class: "team-card__btns" },
-          ...[-1, 1, 2, 3].map((d) =>
+          ...[-100, 100, 200, 500].map((d) =>
             el("button", {
               class: "btn btn--small" + (d > 0 ? "" : " btn--danger"),
               text: d > 0 ? `+${d}` : String(d),
@@ -458,6 +472,26 @@ function handleGameKey(e) {
       break;
     case "KeyS":
       sendCommand({ cmd: "scoreboard" });
+      break;
+    case "KeyI":
+      sendCommand({ cmd: "hint" });
+      break;
+    case "KeyB":
+      sendCommand({ cmd: "replay" });
+      break;
+    case "KeyP":
+      sendCommand({ cmd: "results" });
+      break;
+    case "KeyM":
+      sendCommand({ cmd: "mute" });
+      break;
+    case "Digit1":
+    case "Digit2":
+    case "Digit3":
+    case "Digit4":
+    case "Digit5":
+    case "Digit6":
+      sendCommand({ cmd: "turn", team: Number(e.code.slice(5)) - 1 });
       break;
     case "KeyF":
       ipcRenderer.send("stage:fullscreen");
@@ -565,6 +599,10 @@ function bindEvents() {
   $("gp-next").addEventListener("click", () => guarded("next"));
   $("gp-end").addEventListener("click", () => guarded("end"));
   $("gp-scoreboard").addEventListener("click", () => sendCommand({ cmd: "scoreboard" }));
+  $("gp-hint").addEventListener("click", () => sendCommand({ cmd: "hint" }));
+  $("gp-replay").addEventListener("click", () => sendCommand({ cmd: "replay" }));
+  $("gp-results").addEventListener("click", () => sendCommand({ cmd: "results" }));
+  $("gp-mute").addEventListener("click", () => sendCommand({ cmd: "mute" }));
   $("gp-fullscreen").addEventListener("click", () => ipcRenderer.send("stage:fullscreen"));
   window.addEventListener("keydown", handleGameKey);
 

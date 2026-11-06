@@ -2,14 +2,16 @@
 // 只負責氣氛，不放任何文字；遊戲狀態透過 setMood()、burst()、setLevel() 驅動。
 const THREE = require("three");
 
+// camZ：鏡頭距離（越小越近）；converge：光束往中央收攏的程度 0..1
 const MOODS = {
-  idle: { color: 0xffcc00, beam: 0.22, speed: 0.25, particles: 0.25 },
-  flow: { color: 0xffcc00, beam: 0.32, speed: 0.6, particles: 0.5 },
-  warning: { color: 0xff2a2a, beam: 0.45, speed: 1.6, particles: 0.9 },
-  locked: { color: 0xff2a2a, beam: 0.5, speed: 0.05, particles: 0.1 },
-  correct: { color: 0xffd34d, beam: 0.6, speed: 1.2, particles: 1.4 },
-  answer: { color: 0x44ccff, beam: 0.45, speed: 0.5, particles: 0.5 },
-  finished: { color: 0x8888aa, beam: 0.12, speed: 0.15, particles: 0.15 },
+  idle: { color: 0xffcc00, beam: 0.22, speed: 0.25, particles: 0.25, camZ: 9, converge: 0 },
+  flow: { color: 0xffcc00, beam: 0.32, speed: 0.6, particles: 0.5, camZ: 9, converge: 0 },
+  warning: { color: 0xff2a2a, beam: 0.45, speed: 1.6, particles: 0.9, camZ: 8, converge: 0.3 },
+  locked: { color: 0xff2a2a, beam: 0.55, speed: 0.4, particles: 0.1, camZ: 6.2, converge: 1 },
+  correct: { color: 0xffd34d, beam: 0.6, speed: 1.2, particles: 1.4, camZ: 7.5, converge: 0 },
+  answer: { color: 0x44ccff, beam: 0.45, speed: 0.5, particles: 0.5, camZ: 8, converge: 0.5 },
+  finished: { color: 0x8888aa, beam: 0.12, speed: 0.15, particles: 0.15, camZ: 10, converge: 0 },
+  results: { color: 0xff3fa4, beam: 0.6, speed: 1.4, particles: 1.6, camZ: 8.5, converge: 0, rainbow: true },
 };
 
 // 圓形柔光貼圖，讓粒子是發光的點而不是方塊
@@ -133,12 +135,22 @@ function createScene(canvas) {
   let running = true;
   let last = performance.now();
 
+  let rainbow = false;
+  let shakeAmt = 0;
+
   function setMood(name) {
     const m = MOODS[name] || MOODS.idle;
     target.beam = m.beam;
     target.speed = m.speed;
     target.particles = m.particles;
+    target.camZ = m.camZ;
+    target.converge = m.converge;
     target.color.setHex(m.color);
+    rainbow = !!m.rainbow;
+  }
+
+  function shake(amount = 0.35) {
+    shakeAmt = Math.max(shakeAmt, amount);
   }
 
   function burst(color = 0xffdd55) {
@@ -181,12 +193,18 @@ function createScene(canvas) {
     now.beam += (target.beam - now.beam) * k;
     now.speed += (target.speed - now.speed) * k;
     now.particles += (target.particles - now.particles) * k;
+    now.camZ += (target.camZ - now.camZ) * k * 0.6;
+    now.converge += (target.converge - now.converge) * k;
+    if (rainbow) target.color.setHSL((nowMs / 3000) % 1, 1, 0.55);
     now.color.lerp(target.color, k);
     smoothLevel += (level - smoothLevel) * Math.min(1, dt * 12);
     t += dt * now.speed;
 
     beams.forEach((b, i) => {
-      b.rotation.z = Math.sin(t * 1.2 + b.userData.phase) * 0.45 * b.userData.dir;
+      // 收攏時光束指向舞台中央（參賽者）
+      const sweep = Math.sin(t * 1.2 + b.userData.phase) * 0.45 * b.userData.dir;
+      const aim = Math.atan2(b.position.x, 8.5) * -1;
+      b.rotation.z = sweep * (1 - now.converge) + aim * now.converge;
       b.rotation.x = Math.cos(t * 0.8 + b.userData.phase) * 0.25;
       b.material.uniforms.uColor.value.copy(now.color);
       b.material.uniforms.uOpacity.value = now.beam * (0.7 + smoothLevel * 0.9) * (0.8 + 0.2 * Math.sin(t * 3 + i));
@@ -218,8 +236,12 @@ function createScene(canvas) {
       burstPoints.material.opacity = burstLife;
     }
 
-    camera.position.x = Math.sin(t * 0.15) * 1.2;
-    camera.position.y = 2.2 + Math.sin(t * 0.1) * 0.3;
+    shakeAmt *= Math.pow(0.02, dt);
+    const sx = (Math.random() - 0.5) * shakeAmt;
+    const sy = (Math.random() - 0.5) * shakeAmt;
+    camera.position.x = Math.sin(t * 0.15) * 1.2 * (1 - now.converge * 0.8) + sx;
+    camera.position.y = 2.2 + Math.sin(t * 0.1) * 0.3 + sy;
+    camera.position.z = now.camZ;
     camera.lookAt(0, 0.5, -4);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
@@ -228,6 +250,7 @@ function createScene(canvas) {
 
   return {
     setMood,
+    shake,
     burst,
     setLevel,
     stop() {

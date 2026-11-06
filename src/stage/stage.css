@@ -86,6 +86,7 @@ body {
 }
 .header__round {
   justify-self: start;
+  white-space: nowrap;
   font-size: 1.4rem;
   font-weight: 900;
   letter-spacing: 0.15em;
@@ -239,9 +240,9 @@ body {
 }
 .idle__sub {
   margin-top: 2vh;
-  color: var(--c-muted);
-  letter-spacing: 0.3em;
-  font-size: 2.2vh;
+  color: #ccc;
+  letter-spacing: 0.2em;
+  font-size: 2.6vh;
 }
 @keyframes roundIn {
   from {
@@ -259,43 +260,80 @@ body {
   }
 }
 
-/* 歌詞：換句時從下方翻起 */
-.lyric-stage {
+/* ---------- KTV 兩行歌詞 ---------- */
+.ktv {
   width: 100%;
-  transform-style: preserve-3d;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4vh;
+  padding: 0 5vw;
 }
-.lyric-line {
-  font-size: 22vh;
+.ktv-line {
+  min-height: 1.2em;
+  font-size: 13vh;
   font-weight: 900;
-  line-height: 1.1;
-  color: #fff;
-  text-align: center;
-  padding: 0 3vw;
-  white-space: pre-wrap;
-  word-break: break-word;
-  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 50px rgba(255, 204, 0, 0.55);
+  line-height: 1.15;
+  white-space: nowrap;
+  transition: opacity 0.4s, transform 0.4s, filter 0.4s;
+  animation: lineIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.15);
   transform-origin: 50% 100%;
 }
-.lyric-line.is-long {
-  font-size: 15vh;
+.ktv-line--a {
+  text-align: left;
 }
-.lyric-line.is-very-long {
-  font-size: 10vh;
+.ktv-line--b {
+  text-align: right;
 }
-.lyric-line.enter {
-  animation: lineIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+.ktv-line.is-next {
+  opacity: 0.55;
+  transform: scale(0.88);
+  filter: blur(0.5px);
+}
+.ktv-line--a.is-next {
+  transform-origin: 0 50%;
+}
+.ktv-line--b.is-next {
+  transform-origin: 100% 50%;
+}
+.ktv-line.is-next.is-masked {
+  opacity: 0.85;
+  filter: none;
 }
 @keyframes lineIn {
   from {
     opacity: 0;
-    transform: rotateX(-70deg) translateY(30%);
+    transform: rotateX(-80deg) translateY(30%);
   }
 }
-.game.is-video .lyric-line {
-  font-size: 11vh;
+.ktv-text {
+  display: inline-block;
 }
-.game.is-video .lyric-line.is-long {
-  font-size: 8vh;
+.ktv-text[data-size="m"] {
+  font-size: 0.82em;
+}
+.ktv-text[data-size="s"] {
+  font-size: 0.66em;
+}
+.ktv-text[data-size="xs"] {
+  font-size: 0.5em;
+}
+.u {
+  color: #fff;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(0, 0, 0, 0.9);
+  transition: color 0.12s, text-shadow 0.12s;
+}
+/* 唱過的字：KTV 變色 */
+.u.is-sung {
+  color: var(--c-gold);
+  text-shadow: 0 4px 0 #6b5300, 0 0 30px rgba(255, 204, 0, 0.8);
+}
+.game.is-video .ktv-line {
+  font-size: 7vh;
+}
+.game.is-video .ktv {
+  gap: 1.5vh;
 }
 .game.is-video .idle__number {
   font-size: 14vh;
@@ -304,22 +342,18 @@ body {
   font-size: 3vh;
 }
 
-/* 遮字翻牌：正面是 ★，翻過來是答案 */
-.tiles {
-  display: inline-flex;
-  gap: 0.08em;
-  margin: 0 0.12em;
-  vertical-align: baseline;
-  perspective: 600px;
-}
+/* ---------- 空白牌 ---------- */
 .tile {
   position: relative;
   display: inline-block;
-  min-width: 0.95em;
-  height: 1.1em;
-  vertical-align: -0.12em;
+  width: 1em;
+  height: 1.08em;
+  margin: 0 0.04em;
+  vertical-align: -0.14em;
+  perspective: 600px;
 }
 .tile--word {
+  width: auto;
   min-width: 2.2em;
 }
 .tile__inner {
@@ -338,34 +372,241 @@ body {
   align-items: center;
   justify-content: center;
   backface-visibility: hidden;
-  border-radius: 0.12em;
+  border-radius: 0.1em;
 }
 .tile__front {
-  background: linear-gradient(160deg, #ffe066, #d9a300 55%, #a87b00);
+  background: linear-gradient(160deg, #ffe680, #e6b000 50%, #9c7200);
   color: #fff8d6;
-  font-size: 0.55em;
-  box-shadow: inset 0 0 0 0.04em rgba(255, 255, 255, 0.5), 0 0.05em 0.3em rgba(0, 0, 0, 0.6), 0 0 0.5em rgba(255, 204, 0, 0.5);
+  font-size: 0.5em;
+  box-shadow: inset 0 0 0 0.05em rgba(255, 255, 255, 0.55), inset 0 -0.12em 0 rgba(0, 0, 0, 0.25),
+    0 0.06em 0.3em rgba(0, 0, 0, 0.7), 0 0 0.5em rgba(255, 204, 0, 0.45);
   text-shadow: 0 0 0.3em #fff;
 }
-.locked .tile__front {
-  animation: tileWait 1.2s ease-in-out infinite;
+.ktv-line.is-next .tile__front {
+  animation: tileTease 1.6s ease-in-out infinite;
+}
+.ktv-line.is-locked .tile__front {
+  animation: tileWait 0.9s ease-in-out infinite;
+}
+@keyframes tileTease {
+  50% {
+    transform: translateY(-0.04em);
+  }
 }
 @keyframes tileWait {
   50% {
-    box-shadow: inset 0 0 0 0.04em rgba(255, 255, 255, 0.8), 0 0.05em 0.3em rgba(0, 0, 0, 0.6), 0 0 1.2em rgba(255, 80, 80, 0.9);
+    box-shadow: inset 0 0 0 0.05em rgba(255, 255, 255, 0.9), inset 0 -0.12em 0 rgba(0, 0, 0, 0.25),
+      0 0.06em 0.3em rgba(0, 0, 0, 0.7), 0 0 1.4em rgba(255, 60, 60, 0.95);
   }
 }
 .tile__back {
   transform: rotateY(180deg);
   color: var(--c-gold);
+  background: rgba(40, 30, 0, 0.6);
+  box-shadow: inset 0 0 0 0.04em rgba(255, 204, 0, 0.6);
   text-shadow: 0 0 0.4em rgba(255, 204, 0, 0.9);
   white-space: nowrap;
+  padding: 0 0.1em;
 }
-.tiles--answer .tile__back {
+.tile.is-hinted .tile__back {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 0.04em rgba(255, 255, 255, 0.6);
+  text-shadow: none;
+}
+.tile--answer .tile__back {
   color: var(--c-active);
+  background: rgba(0, 30, 50, 0.6);
+  box-shadow: inset 0 0 0 0.04em rgba(68, 204, 255, 0.6);
   text-shadow: 0 0 0.4em rgba(68, 204, 255, 0.9);
 }
-/* 尚未翻開時只看得到牌面，所以背面文字不撐寬；英文單字牌用固定寬度 */
+
+/* ---------- 輪到誰 ---------- */
+.turn {
+  position: absolute;
+  top: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  padding: 10px 34px;
+  border-radius: 60px;
+  background: linear-gradient(90deg, rgba(120, 0, 60, 0.85), rgba(40, 0, 20, 0.85));
+  border: 2px solid #ff3fa4;
+  box-shadow: 0 0 40px rgba(255, 63, 164, 0.5);
+  animation: turnIn 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
+  white-space: nowrap;
+}
+.turn.is-locked {
+  background: linear-gradient(90deg, rgba(150, 0, 0, 0.9), rgba(60, 0, 0, 0.9));
+  border-color: #ff4444;
+  box-shadow: 0 0 60px rgba(255, 50, 50, 0.7);
+  transform: translateX(-50%) scale(1.15);
+}
+.turn__team {
+  font-size: 5.5vh;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+}
+.turn__points {
+  font-size: 4vh;
+  font-weight: 900;
+  color: var(--c-gold);
+  text-shadow: 0 0 20px rgba(255, 204, 0, 0.8);
+}
+@keyframes turnIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-30px) scale(0.6);
+  }
+}
+
+/* ---------- 倒數（右上角，KTV 上排靠左、這裡是空的） ---------- */
+.countdown {
+  position: absolute;
+  right: 4vw;
+  top: 96px;
+  z-index: 46;
+  width: 22vh;
+  height: 22vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 6px solid #ff3b3b;
+  background: radial-gradient(circle, rgba(120, 0, 0, 0.8), rgba(30, 0, 0, 0.8));
+  font-size: 15vh;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(255, 0, 0, 0.9);
+  box-shadow: 0 0 50px rgba(255, 0, 0, 0.7);
+  animation: countPop 1s ease-out both;
+  pointer-events: none;
+}
+@keyframes countPop {
+  0% {
+    transform: scale(1.8) rotateY(90deg);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+}
+
+/* ---------- 飛向計分板的分數 ---------- */
+.floats {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 80;
+}
+.float-score {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 12vh;
+  font-weight: 900;
+  color: var(--c-gold);
+  text-shadow: 0 6px 0 #6b5300, 0 0 40px rgba(255, 204, 0, 0.9);
+  white-space: nowrap;
+}
+.float-score.is-minus {
+  color: #ff6b6b;
+  text-shadow: 0 6px 0 #600, 0 0 40px rgba(255, 0, 0, 0.7);
+}
+
+/* ---------- 頒獎台 ---------- */
+.results {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.75));
+  perspective: 1200px;
+}
+.results__title {
+  font-size: 9vh;
+  font-weight: 900;
+  color: var(--c-gold);
+  text-shadow: 0 6px 0 #6b5300, 0 0 60px rgba(255, 204, 0, 0.7);
+  margin-bottom: 4vh;
+  animation: roundIn 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.podium {
+  display: flex;
+  align-items: flex-end;
+  gap: 2vw;
+  transform: rotateX(12deg);
+  transform-style: preserve-3d;
+}
+.podium__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 18vw;
+  animation: rise 1s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+.podium__name {
+  font-size: 4.5vh;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.podium__score {
+  font-size: 6vh;
+  font-weight: 900;
+  color: var(--c-gold);
+  text-shadow: 0 0 30px rgba(255, 204, 0, 0.8);
+  margin-bottom: 1vh;
+}
+.podium__block {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-top: 2vh;
+  border-radius: 10px 10px 0 0;
+  font-size: 10vh;
+  font-weight: 900;
+  color: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.35), 0 0 50px rgba(0, 0, 0, 0.6);
+}
+.podium__col--1 .podium__block {
+  height: 34vh;
+  background: linear-gradient(to bottom, #ffe680, #c99a00);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5), 0 0 80px rgba(255, 204, 0, 0.6);
+}
+.podium__col--2 .podium__block {
+  height: 24vh;
+  background: linear-gradient(to bottom, #f0f0f0, #9a9a9a);
+}
+.podium__col--3 .podium__block {
+  height: 17vh;
+  background: linear-gradient(to bottom, #f0b27a, #a0612a);
+}
+.podium__col--4 .podium__block {
+  height: 10vh;
+  background: linear-gradient(to bottom, #666, #333);
+}
+.podium__empty {
+  font-size: 8vh;
+  font-weight: 900;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(40vh);
+  }
+}
 
 /* ---------- 歌名面板 ---------- */
 .title-panel {
@@ -469,6 +710,14 @@ body {
   text-align: center;
   box-shadow: 0 0 20px rgba(255, 204, 0, 0.2);
 }
+.scoreboard__team.is-turn {
+  border-color: #ff3fa4;
+  box-shadow: 0 0 30px rgba(255, 63, 164, 0.7);
+  transform: translateY(-6px);
+}
+.scoreboard__team.is-turn .scoreboard__name::before {
+  content: "🎤 ";
+}
 .scoreboard__team.is-leader {
   box-shadow: 0 0 30px rgba(255, 204, 0, 0.6);
 }
@@ -539,4 +788,16 @@ body {
   background: var(--c-gold);
   color: #000;
   font-weight: bold;
+}
+
+/* 結算時只留頒獎台與 3D 舞台 */
+.game.is-results .stage-main,
+.game.is-results .scoreboard,
+.game.is-results .title-panel,
+.game.is-results .turn,
+.game.is-results .countdown,
+.game.is-results .header__status,
+.game.is-results .visualizer,
+.game.is-results .warning-overlay {
+  visibility: hidden;
 }

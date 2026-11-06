@@ -87,7 +87,9 @@
         <span id="gp-status" class="pill"></span>
         <span class="spacer"></span>
         <button id="gp-fullscreen" class="btn btn--small">🖥 舞台全螢幕 (F)</button>
-        <button id="gp-scoreboard" class="btn btn--small">🏆 計分板 (S)</button>
+        <button id="gp-scoreboard" class="btn btn--small">📊 計分板 (S)</button>
+        <button id="gp-mute" class="btn btn--small">🔊 音效 (M)</button>
+        <button id="gp-results" class="btn btn--small btn--primary">🏆 公布結果 (P)</button>
         <button id="gp-end" class="btn btn--small btn--danger">✖ 結束遊戲</button>
       </div>
       <div class="gp-body">
@@ -111,7 +113,10 @@
           <div id="gp-time" class="muted gp-time"></div>
 
           <div id="gp-answer" class="gp-answer">
-            <div id="gp-answer-label" class="gp-answer__label"></div>
+            <div class="gp-answer__top">
+              <div id="gp-answer-label" class="gp-answer__label"></div>
+              <div id="gp-answer-meta" class="gp-answer__meta"></div>
+            </div>
             <div id="gp-answer-text" class="gp-answer__text"></div>
             <div id="gp-answer-line" class="gp-answer__line"></div>
           </div>
@@ -121,14 +126,16 @@
             <button id="gp-toggle" class="btn btn--large">▶ 開始 (Space)</button>
             <button id="gp-correct" class="btn btn--primary btn--large">✨ 答對 (Enter)</button>
             <button id="gp-reveal" class="btn btn--answer btn--large">📖 公布答案 (A)</button>
+            <button id="gp-hint" class="btn" title="翻開下一個字，該字不計分 (I)">💡 提示 (I)</button>
+            <button id="gp-replay" class="btn" title="從前一句重播 (B)">⏪ 重聽 (B)</button>
             <button id="gp-reset" class="btn" title="重來 (R)">🔄 重來</button>
             <button id="gp-next" class="btn btn--icon" title="下一首 (→)">⏭</button>
           </div>
 
           <div id="gp-teams" class="gp-teams"></div>
           <p class="muted hint">
-            快捷鍵：Space 播放／暫停・Enter 答對・A 公布答案・R 重來・← → 切歌・S 計分板・F 舞台全螢幕。
-            歌曲進行中切歌、重來、結束要按兩次。
+            快捷鍵：Space 播放／暫停・Enter 答對・A 公布答案・I 提示・B 重聽・1–6 指定輪到的隊伍・R 重來・← → 切歌・S 計分板・P 結果・M 音效・F 舞台全螢幕。
+            答對自動把分數加給輪到的隊伍（還藏著的字數 × 100），之後自動換下一隊；點隊伍卡可改輪到誰。歌曲進行中切歌、重來、結束要按兩次。
           </p>
         </main>
       </div>

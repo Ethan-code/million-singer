@@ -1,166 +1,108 @@
-
+/* 舞台（觀眾畫面）：3D 背景 + 大字歌詞 + 翻牌遮字 */
 body {
   margin: 0;
-  background: var(--c-bg);
+  background: #000;
   color: var(--c-text);
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  font-family: system-ui, sans-serif;
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   position: fixed;
 }
-.panel__title {
-  font-size: clamp(2.5rem, 8vw, 4rem);
-  font-weight: 900;
-  color: var(--c-gold);
-  margin: 0 0 20px 0;
+
+.scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+.vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.75) 100%);
 }
 
-/* 等待畫面 */
+/* ---------- 等待畫面 ---------- */
 .waiting {
   position: absolute;
   inset: 0;
+  z-index: 5;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--c-muted);
+  perspective: 900px;
 }
-
-/* 歌詞區與影片：影片模式時影片在上、歌詞在下，歌詞不可蓋住影片 */
-.stage-main {
-  position: absolute;
-  inset: 100px 0 90px;
+.logo {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2vh;
-}
-.stage-main .lyrics-area {
-  position: relative;
-  inset: auto;
-  flex: 1;
-  width: 100%;
-}
-.video-box {
-  flex: none;
-  height: 52vh;
-  aspect-ratio: 16 / 9;
-  max-width: 92vw;
-  background: #111;
-  border-radius: 8px;
-  overflow: hidden;
-}
-.yt-frame {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-}
-.game.is-video .lyric-line {
-  font-size: 11vh;
-}
-.game.is-video #idle-round-text {
-  font-size: 12vh;
-}
-/* 影片模式：警示只閃邊框，不疊在影片上 */
-.game.is-video .warning-overlay.active {
-  animation: borderPanic 0.3s infinite alternate;
-}
-.game.is-video .warning-icon {
-  display: none;
-}
-@keyframes borderPanic {
-  0% {
-    border-color: rgba(255, 0, 0, 1);
-  }
-  100% {
-    border-color: rgba(100, 0, 0, 0.5);
-  }
-}
-
-/* 計分板 */
-.scoreboard {
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 14px;
-  z-index: 35;
-}
-.scoreboard__team {
-  min-width: 120px;
-  padding: 6px 18px;
-  border: 2px solid var(--c-gold);
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.8);
-  text-align: center;
-}
-.scoreboard__name {
-  color: var(--c-gold);
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-.scoreboard__score {
-  font-size: 2.2rem;
+  gap: 0.3em;
+  font-size: clamp(3rem, 10vw, 8rem);
   font-weight: 900;
-  line-height: 1.1;
+  transform-style: preserve-3d;
+  animation: logoFloat 6s ease-in-out infinite;
 }
-.scoreboard__score.is-bump {
-  animation: popText 0.4s ease-out;
+.logo__text {
+  color: var(--c-gold);
+  text-shadow: 0 1px 0 #c79c00, 0 2px 0 #b38c00, 0 3px 0 #9e7b00, 0 4px 0 #8a6b00, 0 6px 0 #6b5300,
+    0 10px 30px rgba(0, 0, 0, 0.8), 0 0 60px rgba(255, 204, 0, 0.5);
+}
+.waiting__hint {
+  color: var(--c-muted);
+  letter-spacing: 0.2em;
+}
+@keyframes logoFloat {
+  0%,
+  100% {
+    transform: rotateX(12deg) rotateY(-10deg);
+  }
+  50% {
+    transform: rotateX(8deg) rotateY(10deg) translateZ(30px);
+  }
 }
 
-/* 舞台控制列：滑鼠移到底部才出現，給單螢幕、沒有控制台時用 */
-.game .controls {
-  z-index: 60;
-}
-/* --- 遊戲畫面 --- */
+/* ---------- 遊戲 ---------- */
 .game {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
 }
 
-/* Header */
 .header {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100px;
+  right: 0;
+  height: 96px;
   display: grid;
-  grid-template-columns: 200px 1fr 200px;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 0 40px;
   z-index: 50;
-  pointer-events: none;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent);
 }
 .header__round {
-  font-size: 1.5rem;
+  justify-self: start;
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
   color: var(--c-gold);
   border: 2px solid var(--c-gold);
-  padding: 5px 20px;
+  padding: 6px 22px;
   border-radius: 50px;
-  cursor: pointer;
   background: rgba(0, 0, 0, 0.5);
-  pointer-events: auto;
-  text-align: center;
+  box-shadow: 0 0 20px rgba(255, 204, 0, 0.3), inset 0 0 12px rgba(255, 204, 0, 0.2);
+  cursor: pointer;
 }
-
-/* 狀態列 */
 .header__status {
-  font-size: 1.5rem;
+  justify-self: end;
+  font-size: 1.4rem;
   font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  text-align: right;
-  background: transparent;
-  border: none;
-  transition: all 0.3s;
-  align-self: center;
+  letter-spacing: 0.12em;
+  transition: color 0.3s, text-shadow 0.3s;
 }
 .status--ready {
   color: var(--c-success);
@@ -185,28 +127,20 @@ body {
 }
 .status--finished {
   color: #888;
-  text-shadow: none;
 }
 @keyframes pulseText {
-  0% {
-    opacity: 1;
-  }
   50% {
     opacity: 0.4;
   }
-  100% {
-    opacity: 1;
-  }
 }
 
-/* Visualizer */
+/* 律動條：本地音檔時跟著真實頻譜，YouTube 時用動畫 */
 .visualizer {
   display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  opacity: 0.2;
+  gap: 6px;
+  align-items: flex-end;
+  height: 44px;
+  opacity: 0.25;
   transition: opacity 0.5s;
 }
 .visualizer.active {
@@ -214,268 +148,395 @@ body {
 }
 .visualizer__bar {
   width: 8px;
-  background: var(--c-gold);
-  border-radius: 2px;
-  box-shadow: 0 0 10px var(--c-gold);
   height: 100%;
+  background: linear-gradient(to top, #b38c00, var(--c-gold));
+  border-radius: 3px;
+  box-shadow: 0 0 10px var(--c-gold);
+  transform-origin: bottom;
+  transform: scaleY(0.15);
+  transition: transform 0.06s linear;
 }
-.visualizer.playing .visualizer__bar {
+.visualizer.is-fake.playing .visualizer__bar {
   animation: bounce 1s infinite ease-in-out;
+}
+.visualizer.is-fake .visualizer__bar:nth-child(odd) {
+  animation-duration: 0.8s;
+}
+.visualizer.is-fake .visualizer__bar:nth-child(3n) {
+  animation-duration: 1.2s;
 }
 @keyframes bounce {
   0%,
   100% {
-    transform: scaleY(0.3);
-    opacity: 0.5;
+    transform: scaleY(0.25);
   }
   50% {
     transform: scaleY(1);
-    opacity: 1;
   }
 }
 
-/* 標題滑入區塊 */
+/* ---------- 中央區 ---------- */
+.stage-main {
+  position: absolute;
+  inset: 96px 0 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2vh;
+}
+.lyrics-area {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1000px;
+}
+.video-box {
+  flex: none;
+  height: 50vh;
+  aspect-ratio: 16 / 9;
+  max-width: 92vw;
+  background: #111;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.6), 0 0 50px rgba(255, 204, 0, 0.25);
+}
+.yt-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* Round 開場：3D 立體數字 */
+.idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform-style: preserve-3d;
+  animation: roundIn 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.idle__label {
+  font-size: 4vh;
+  font-weight: 900;
+  letter-spacing: 0.6em;
+  margin-right: -0.6em;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+.idle__number {
+  font-size: min(42vh, 30vw);
+  font-weight: 900;
+  line-height: 0.95;
+  color: var(--c-gold);
+  transform: rotateX(18deg);
+  text-shadow: 0 2px 0 #d4a900, 0 4px 0 #c29a00, 0 6px 0 #af8b00, 0 8px 0 #9c7c00, 0 10px 0 #896d00,
+    0 12px 0 #765e00, 0 20px 40px rgba(0, 0, 0, 0.9), 0 0 120px rgba(255, 204, 0, 0.45);
+  animation: numberGlow 3s ease-in-out infinite;
+}
+.idle__sub {
+  margin-top: 2vh;
+  color: var(--c-muted);
+  letter-spacing: 0.3em;
+  font-size: 2.2vh;
+}
+@keyframes roundIn {
+  from {
+    opacity: 0;
+    transform: translateZ(-600px) rotateX(50deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes numberGlow {
+  50% {
+    filter: brightness(1.25);
+  }
+}
+
+/* 歌詞：換句時從下方翻起 */
+.lyric-stage {
+  width: 100%;
+  transform-style: preserve-3d;
+}
+.lyric-line {
+  font-size: 22vh;
+  font-weight: 900;
+  line-height: 1.1;
+  color: #fff;
+  text-align: center;
+  padding: 0 3vw;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 50px rgba(255, 204, 0, 0.55);
+  transform-origin: 50% 100%;
+}
+.lyric-line.is-long {
+  font-size: 15vh;
+}
+.lyric-line.is-very-long {
+  font-size: 10vh;
+}
+.lyric-line.enter {
+  animation: lineIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+@keyframes lineIn {
+  from {
+    opacity: 0;
+    transform: rotateX(-70deg) translateY(30%);
+  }
+}
+.game.is-video .lyric-line {
+  font-size: 11vh;
+}
+.game.is-video .lyric-line.is-long {
+  font-size: 8vh;
+}
+.game.is-video .idle__number {
+  font-size: 14vh;
+}
+.game.is-video .idle__label {
+  font-size: 3vh;
+}
+
+/* 遮字翻牌：正面是 ★，翻過來是答案 */
+.tiles {
+  display: inline-flex;
+  gap: 0.08em;
+  margin: 0 0.12em;
+  vertical-align: baseline;
+  perspective: 600px;
+}
+.tile {
+  position: relative;
+  display: inline-block;
+  min-width: 0.95em;
+  height: 1.1em;
+  vertical-align: -0.12em;
+}
+.tile--word {
+  min-width: 2.2em;
+}
+.tile__inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.tile.is-flipped .tile__inner {
+  transform: rotateY(180deg);
+}
+.tile__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+  border-radius: 0.12em;
+}
+.tile__front {
+  background: linear-gradient(160deg, #ffe066, #d9a300 55%, #a87b00);
+  color: #fff8d6;
+  font-size: 0.55em;
+  box-shadow: inset 0 0 0 0.04em rgba(255, 255, 255, 0.5), 0 0.05em 0.3em rgba(0, 0, 0, 0.6), 0 0 0.5em rgba(255, 204, 0, 0.5);
+  text-shadow: 0 0 0.3em #fff;
+}
+.locked .tile__front {
+  animation: tileWait 1.2s ease-in-out infinite;
+}
+@keyframes tileWait {
+  50% {
+    box-shadow: inset 0 0 0 0.04em rgba(255, 255, 255, 0.8), 0 0.05em 0.3em rgba(0, 0, 0, 0.6), 0 0 1.2em rgba(255, 80, 80, 0.9);
+  }
+}
+.tile__back {
+  transform: rotateY(180deg);
+  color: var(--c-gold);
+  text-shadow: 0 0 0.4em rgba(255, 204, 0, 0.9);
+  white-space: nowrap;
+}
+.tiles--answer .tile__back {
+  color: var(--c-active);
+  text-shadow: 0 0 0.4em rgba(68, 204, 255, 0.9);
+}
+/* 尚未翻開時只看得到牌面，所以背面文字不撐寬；英文單字牌用固定寬度 */
+
+/* ---------- 歌名面板 ---------- */
 .title-panel {
   position: fixed;
   right: 0;
-  bottom: 150px;
-  background: rgba(0, 0, 0, 0.9);
-  border: 4px solid var(--c-gold);
-  border-right: none;
-  border-radius: 20px 0 0 20px;
-  padding: 15px 40px;
-  padding-right: 60px;
-  color: #fff;
-  box-shadow: -10px 10px 50px rgba(0, 0, 0, 0.8);
+  bottom: 120px;
   z-index: 100;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 300px;
-  transform: translateX(120%);
-  transition: none;
+  padding: 14px 60px 14px 36px;
+  min-width: 320px;
+  border: 2px solid rgba(255, 204, 0, 0.8);
+  border-right: none;
+  border-radius: 16px 0 0 16px;
+  background: linear-gradient(120deg, rgba(40, 32, 0, 0.85), rgba(0, 0, 0, 0.85));
+  backdrop-filter: blur(8px);
+  box-shadow: -10px 10px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 204, 0, 0.25);
+  transform: perspective(800px) translateX(120%) rotateY(-30deg);
+  transition: transform 0.6s cubic-bezier(0.3, 1.2, 0.5, 1);
 }
 .title-panel.visible {
-  /* 顯示狀態：滑入時，要有動畫 */
-  transform: translateX(0);
-  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform: perspective(800px) translateX(0) rotateY(0);
 }
 .title-label {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--c-gold);
   font-weight: bold;
-  margin-bottom: 5px;
-  letter-spacing: 2px;
+  letter-spacing: 0.25em;
   text-transform: uppercase;
 }
 .title-text {
   font-size: 2rem;
   font-weight: 900;
-  color: white;
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
   white-space: nowrap;
 }
 
-/* 全螢幕歌詞 */
-.lyrics-area {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 30;
-  overflow: visible;
-}
-.lyric-line {
-  font-size: 20vmin;
-  font-weight: 900;
-  line-height: 1;
-  color: white;
-  text-shadow: 0 0 60px rgba(255, 204, 0, 0.8);
-  white-space: pre-wrap;
-  word-break: break-word;
-  padding: 0 20px;
-  text-align: center;
-  width: 100%;
-}
-@media (min-width: 1024px) {
-  .lyric-line {
-    font-size: 32vh;
-  }
-}
-
-.magic-word {
-  display: inline-block;
-  color: var(--c-gold);
-  text-shadow: 0 0 40px rgba(255, 204, 0, 0.8);
-  margin: 0 5px;
-  letter-spacing: 0px;
-  vertical-align: baseline;
-}
-.magic-word.is-revealing {
-  animation: popText 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-@keyframes popText {
-  0% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.3);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-#idle-round-text {
-  color: var(--c-gold);
-  white-space: nowrap;
-  font-size: min(40vh, 18vw);
-  font-weight: 900;
-  margin: 0;
-  line-height: 1;
-  text-shadow: 0 0 80px rgba(255, 204, 0, 0.6);
-  transform: skewX(-10deg);
-}
-
-/* ★★★ 實線紅框 + 強烈閃爍 ★★★ */
-
-/* 1. 警示邊框 (Solid Border) */
+/* ---------- 警示與閃光 ---------- */
 .warning-overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 25;
+  border: 14px solid transparent;
   opacity: 0;
-  transition: opacity 0.1s;
-  /* 預設邊框 (透明) */
-  border: 20px solid transparent;
+  transition: opacity 0.2s;
 }
 .warning-overlay.active {
   opacity: 1;
-  /* 啟動超快閃爍動畫 */
-  animation: hardPanic 0.3s infinite alternate;
+  animation: borderPanic 0.35s infinite alternate;
 }
-
-@keyframes hardPanic {
+@keyframes borderPanic {
   0% {
-    border-color: rgba(255, 0, 0, 1); /* 亮紅實線 */
-    background-color: rgba(255, 0, 0, 0.1); /* 微微泛紅背景 */
-    box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.8); /* 內發光 */
+    border-color: rgba(255, 30, 30, 1);
+    box-shadow: inset 0 0 80px rgba(255, 0, 0, 0.7);
   }
   100% {
-    border-color: rgba(100, 0, 0, 0.5); /* 暗紅 */
-    background-color: transparent;
-    box-shadow: none;
+    border-color: rgba(120, 0, 0, 0.5);
+    box-shadow: inset 0 0 20px rgba(255, 0, 0, 0.2);
   }
 }
-
-/* 2. 警示 Icon */
-.warning-icon {
+.flash {
   position: absolute;
-  top: 20%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 8vh;
-  color: #ff3333;
-  z-index: 40;
-  opacity: 0;
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  text-shadow: 0 0 20px rgba(255, 0, 0, 1); /* 強烈光暈 */
+  inset: 0;
+  z-index: 26;
   pointer-events: none;
+  opacity: 0;
 }
-.warning-icon.active {
-  opacity: 1;
-  top: 25%;
-  /* Icon 也跟著狂閃 */
-  animation: iconPanic 0.3s infinite alternate;
+.flash.go {
+  animation: flash 0.7s ease-out;
 }
-
-@keyframes iconPanic {
+.flash.go--correct {
+  background: radial-gradient(circle, rgba(255, 220, 80, 0.55), transparent 70%);
+}
+.flash.go--answer {
+  background: radial-gradient(circle, rgba(68, 204, 255, 0.35), transparent 70%);
+}
+@keyframes flash {
   0% {
-    transform: translateX(-50%) scale(1);
-    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    opacity: 1;
   }
   100% {
-    transform: translateX(-50%) scale(1.4);
-    text-shadow: 0 0 60px red;
-    color: #fff;
-  } /* 閃到變白 */
+    opacity: 0;
+  }
 }
 
+/* ---------- 計分板 ---------- */
+.scoreboard {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%) perspective(700px) rotateX(18deg);
+  transform-origin: bottom;
+  display: flex;
+  gap: 14px;
+  z-index: 35;
+}
+.scoreboard__team {
+  min-width: 130px;
+  padding: 6px 20px;
+  border: 2px solid rgba(255, 204, 0, 0.8);
+  border-radius: 12px;
+  background: linear-gradient(to bottom, rgba(40, 32, 0, 0.9), rgba(0, 0, 0, 0.9));
+  text-align: center;
+  box-shadow: 0 0 20px rgba(255, 204, 0, 0.2);
+}
+.scoreboard__team.is-leader {
+  box-shadow: 0 0 30px rgba(255, 204, 0, 0.6);
+}
+.scoreboard__name {
+  color: var(--c-gold);
+  font-weight: bold;
+  font-size: 1.05rem;
+}
+.scoreboard__score {
+  font-size: 2.3rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.scoreboard__score.is-bump {
+  animation: scoreFlip 0.6s ease-out;
+}
+@keyframes scoreFlip {
+  0% {
+    transform: rotateX(90deg);
+    color: var(--c-gold);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* ---------- 單螢幕用的控制列（滑鼠移到底部才出現） ---------- */
 .controls {
   position: absolute;
-  bottom: 30px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   gap: 10px;
-  z-index: 40;
+  z-index: 60;
   padding: 20px;
   opacity: 0;
   transition: opacity 0.3s;
 }
-.controls:hover,
-.controls:active {
+.controls:hover {
   opacity: 1;
 }
 .menu {
   position: absolute;
-  top: 110px;
+  top: 100px;
   left: 40px;
-  background: rgba(34, 34, 34, 0.98);
+  background: rgba(20, 20, 20, 0.95);
   border: 2px solid var(--c-gold);
   border-radius: 8px;
-  max-height: 50vh;
+  max-height: 60vh;
   overflow-y: auto;
   z-index: 101;
   display: none;
-  min-width: 250px;
+  min-width: 220px;
 }
 .menu.visible {
   display: block;
 }
 .menu__item {
-  padding: 15px 25px;
+  padding: 12px 22px;
   cursor: pointer;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid #333;
   color: #ccc;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 .menu__item:hover,
 .menu__item.active {
   background: var(--c-gold);
-  color: black;
+  color: #000;
   font-weight: bold;
-}
-.error-msg {
-  color: #f55;
-  margin-top: 10px;
-  font-weight: bold;
-}
-/* 強制特殊符號寬度與國字一致 */
-.mask-symbol {
-  display: inline-block;
-  width: 1em; /* 強制寬度等於當前字體大小 (一個字的寬) */
-  text-align: center; /* 讓星星在格子裡置中 */
-  font-family: "Courier New", Courier, monospace; /* 或是設為等寬字體 */
-  vertical-align: middle; /* 微調垂直對齊 */
-  transform: translateY(-5%); /* 視情況微調上下位置 */
-}
-
-
-.idle-msg {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* 公布答案：和答對（金色）區分 */
-.magic-word--answer {
-  color: var(--c-active);
-  text-shadow: 0 0 40px rgba(68, 204, 255, 0.8);
 }

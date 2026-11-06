@@ -55,10 +55,24 @@ class AudioPlayer extends EventTarget {
   set playbackRate(v) {
     this.el.playbackRate = v;
   }
+  // 把聲音接進 Web Audio 取得頻譜（舞台燈光與律動條用）。
+  // 接上後聲音改由 AudioContext 輸出，同一個元素只能接一次。
+  attachAnalyser(ctx) {
+    if (this.analyser) return this.analyser;
+    this.sourceNode = ctx.createMediaElementSource(this.el);
+    this.analyser = ctx.createAnalyser();
+    this.analyser.fftSize = 256;
+    this.analyser.smoothingTimeConstant = 0.75;
+    this.sourceNode.connect(this.analyser);
+    this.analyser.connect(ctx.destination);
+    return this.analyser;
+  }
   destroy() {
     this.el.pause();
     this.el.removeAttribute("src");
     this.el.load();
+    this.sourceNode?.disconnect();
+    this.analyser?.disconnect();
   }
 }
 

@@ -11,6 +11,7 @@ const library = require("../shared/library");
 const { createPlayer } = require("../player/players");
 const { toast, dismiss } = require("../ui/toast");
 const { createGuard } = require("../ui/guard");
+const { createScene } = require("./scene3d");
 
 // ==========================================
 // 常數
@@ -83,7 +84,9 @@ const els = {
   titlePanel: $("title-panel"),
   titleText: $("title-text"),
   warningOverlay: $("warning-overlay"),
-  warningIcon: $("warning-icon"),
+  flash: $("flash"),
+  idleSub: $("idle-sub"),
+  visualizerBars: [...document.querySelectorAll(".visualizer__bar")],
   round: $("display-round"),
   status: $("display-status"),
   idleMsg: $("idle-msg"),
@@ -138,6 +141,7 @@ function startGame(init) {
 
 function destroyPlayer() {
   stopSync();
+  analyser = null;
   if (player) {
     player.destroy();
     player = null;
@@ -167,6 +171,7 @@ function loadSong(index) {
   state.isTitleVisible = false;
   state.isPlaying = false;
   state.lastError = null;
+  renderedLineKey = "";
 
   const fileExists = (f) => library.songFileExists(state.dataDir, f);
   state.source = resolveSource(song, { fileExists, prefer: state.prefer });
@@ -185,7 +190,10 @@ function loadSong(index) {
         startTime: state.config.startTime,
       });
       bindPlayer(player);
-      if (player.kind === "audio") player.currentTime = state.config.startTime;
+      if (player.kind === "audio") {
+        player.currentTime = state.config.startTime;
+        attachAnalyser(player);
+      }
     } catch (e) {
       reportError(e.message);
     }
@@ -367,6 +375,9 @@ function reveal(type) {
   line.revealType = type;
   state.roundState = RoundState.REVEALING;
   state.revealType = type;
+  flipTiles(type);
+  flash(type);
+  if (type === RevealType.CORRECT) scene?.burst(0xffdd55);
   showTitle();
   playAudio();
   updateUI();
@@ -546,9 +557,12 @@ const STATUS_VIEW = {
   [RoundState.FINISHED]: { text: "🏁 FINISHED", className: "status--finished" },
 };
 
+let warningOn = false;
 function setWarning(active) {
+  if (active === warningOn) return;
+  warningOn = active;
   els.warningOverlay.classList.toggle("active", active);
-  els.warningIcon.classList.toggle("active", active);
+  updateMood();
 }
 
 function updateUI() {
@@ -572,11 +586,20 @@ function updateUI() {
 
   els.idleMsg.classList.toggle("hidden", !isIdle);
   els.lyricContainer.classList.toggle("hidden", isIdle);
-  if (isIdle) els.idleRound.textContent = roundLabel;
+  if (isIdle) {
+    const n = String(state.currentTrackIndex + 1);
+    if (els.idleRound.textContent !== n) {
+      els.idleRound.textContent = n;
+      restartAnimation(els.idleMsg);
+    }
+    els.idleSub.textContent = `${n} / ${state.playlist.length}`;
+  }
   if (state.roundState !== RoundState.FLOW) setWarning(false);
 
-  const line = state.lyricsData[state.currentIndex];
-  els.lyricLine.innerHTML = line ? renderLyricLine(line) : "";
+  renderLyric();
+  els.lyricContainer.classList.toggle("locked", isLocked);
+  els.visualizer.classList.toggle("is-fake", !analyser);
+  updateMood();
 
   els.btns.toggle.textContent = isIdle
     ? "▶ 開始 (Space)"
@@ -597,25 +620,68 @@ function updateUI() {
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-const MASK_STAR = '<span class="mask-symbol">★</span>';
+// ---------- 歌詞與翻牌 ----------
+// 歌詞 DOM 只在換句時重建；揭曉時只翻牌，動畫才不會被打斷。
+let renderedLineKey = "";
 
-function maskAnswer(answer) {
-  return lrc
-    .maskStarCounts(answer)
-    .map((n) => MASK_STAR.repeat(n))
-    .join(" ");
+function restartAnimation(node, cls) {
+  if (cls) node.classList.remove(cls);
+  node.style.animation = "none";
+  void node.offsetWidth; // 強制重排，讓動畫重新開始
+  node.style.animation = "";
+  if (cls) node.classList.add(cls);
 }
 
-function renderLyricLine(line) {
-  const text = escapeHtml(line.rawText);
-  if (!line.hasMask) return text;
-  return text.replace(/\*(.*?)\*/g, (match, answer) => {
-    if (!line.isAnswered) return `<span class="magic-word">${maskAnswer(answer)}</span>`;
-    const classes = ["magic-word"];
-    if (line.revealType === RevealType.ANSWER) classes.push("magic-word--answer");
-    if (state.roundState === RoundState.REVEALING) classes.push("is-revealing");
-    return `<span class="${classes.join(" ")}">${answer}</span>`;
+function buildTiles(answer, revealed, revealType) {
+  const wrap = document.createElement("span");
+  wrap.className = "tiles" + (revealType === RevealType.ANSWER ? " tiles--answer" : "");
+  // 中文一字一張牌；英文（半形）一個單字一張
+  const units = answer.split(" ").filter(Boolean).flatMap((part) => (/^[\x00-\xff]*$/.test(part) ? [part] : [...part]));
+  for (const unit of units) {
+    const tile = document.createElement("span");
+    const isWord = unit.length > 1;
+    tile.className = "tile" + (isWord ? " tile--word" : "") + (revealed ? " is-flipped" : "");
+    if (isWord) tile.style.minWidth = `${Math.max(2, unit.length * 0.6)}em`;
+    tile.innerHTML = `<span class="tile__inner"><span class="tile__face tile__front">★</span><span class="tile__face tile__back">${escapeHtml(unit)}</span></span>`;
+    wrap.appendChild(tile);
+  }
+  return wrap;
+}
+
+function renderLyric() {
+  const line = state.lyricsData[state.currentIndex];
+  const key = line ? `${state.currentTrackIndex}:${state.currentIndex}` : "";
+  if (key === renderedLineKey) return;
+  renderedLineKey = key;
+  const node = els.lyricLine;
+  node.replaceChildren();
+  if (!line) return;
+
+  const parts = line.rawText.split(/(\*.*?\*)/);
+  for (const part of parts) {
+    const m = /^\*(.*)\*$/.exec(part);
+    if (m && m[1]) node.appendChild(buildTiles(m[1], line.isAnswered, line.revealType));
+    else if (part) node.appendChild(document.createTextNode(part));
+  }
+  const len = lrc.stripMasks(line.rawText).length;
+  node.classList.toggle("is-long", len > 7 && len <= 12);
+  node.classList.toggle("is-very-long", len > 12);
+  restartAnimation(node, "enter");
+}
+
+function flipTiles(type) {
+  const tiles = els.lyricLine.querySelectorAll(".tile");
+  els.lyricLine.querySelectorAll(".tiles").forEach((w) => w.classList.toggle("tiles--answer", type === RevealType.ANSWER));
+  tiles.forEach((tile, i) => {
+    tile.querySelector(".tile__inner").style.transitionDelay = `${i * 0.12}s`;
+    tile.classList.add("is-flipped");
   });
+}
+
+function flash(type) {
+  els.flash.className = "flash";
+  void els.flash.offsetWidth;
+  els.flash.className = `flash go go--${type}`;
 }
 
 function renderScoreboard(bumpIndex = -1) {
@@ -624,7 +690,8 @@ function renderScoreboard(bumpIndex = -1) {
   if (!show) return;
   const cards = state.teams.map((team, i) => {
     const card = document.createElement("div");
-    card.className = "scoreboard__team";
+    const top = Math.max(...state.teams.map((x) => x.score));
+    card.className = "scoreboard__team" + (team.score === top && top > 0 ? " is-leader" : "");
     const name = document.createElement("div");
     name.className = "scoreboard__name";
     name.textContent = team.name;
@@ -722,5 +789,68 @@ function publishState(force) {
   lastPublish = now;
   ipcRenderer.send("game:state", snapshot());
 }
+
+// ==========================================
+// 3D 場景與音樂律動
+// ==========================================
+
+let scene = null;
+try {
+  scene = createScene(document.getElementById("scene"));
+} catch (e) {
+  console.error("3D 場景無法啟動，改用純黑背景", e);
+}
+
+let audioCtx = null;
+let analyser = null;
+let freq = null;
+
+function attachAnalyser(p) {
+  try {
+    audioCtx ||= new AudioContext();
+    analyser = p.attachAnalyser(audioCtx);
+    freq = new Uint8Array(analyser.frequencyBinCount);
+  } catch (e) {
+    console.error("無法分析音樂頻譜", e);
+    analyser = null;
+  }
+}
+
+function updateMood() {
+  if (!scene) return;
+  const mood = {
+    [RoundState.IDLE]: "idle",
+    [RoundState.FLOW]: warningOn ? "warning" : "flow",
+    [RoundState.LOCKED]: "locked",
+    [RoundState.REVEALING]: state.revealType === RevealType.ANSWER ? "answer" : "correct",
+    [RoundState.FINISHED]: "finished",
+  }[state.roundState];
+  scene.setMood(mood);
+}
+
+function audioFrame() {
+  const bars = els.visualizerBars;
+  if (analyser && player?.kind === "audio" && state.isPlaying) {
+    analyser.getByteFrequencyData(freq);
+    // 低頻到中高頻分成幾段給律動條
+    const bins = freq.length * 0.7;
+    let total = 0;
+    bars.forEach((bar, i) => {
+      const from = Math.floor((i / bars.length) ** 1.6 * bins);
+      const to = Math.max(from + 1, Math.floor(((i + 1) / bars.length) ** 1.6 * bins));
+      let sum = 0;
+      for (let j = from; j < to; j++) sum += freq[j];
+      const v = sum / (to - from) / 255;
+      total += v;
+      bar.style.transform = `scaleY(${Math.max(0.08, v).toFixed(3)})`;
+    });
+    scene?.setLevel((total / bars.length) * 1.6);
+  } else {
+    if (analyser) bars.forEach((bar) => (bar.style.transform = ""));
+    scene?.setLevel(state.isPlaying ? 0.35 : 0);
+  }
+  requestAnimationFrame(audioFrame);
+}
+requestAnimationFrame(audioFrame);
 
 bindEvents();

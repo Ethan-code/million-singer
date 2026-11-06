@@ -58,7 +58,8 @@
   "description": "百萬大歌星：歌詞遮字接唱遊戲",
   "dependencies": {
     "opencc-js": "^1.4.2",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "three": "0.187.0"
   },
   "allowScripts": {
     "electron@37.10.3": true,

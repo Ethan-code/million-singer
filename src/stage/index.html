@@ -11,27 +11,36 @@
     <link rel="stylesheet" href="stage.css" />
   </head>
   <body>
+    <!-- 3D 背景（scene3d.js） -->
+    <canvas id="scene" class="scene"></canvas>
+    <div class="vignette"></div>
+
     <div id="waiting" class="waiting">
-      <h1 class="panel__title">🎤 百萬大歌星</h1>
-      <p>等待控制台開始遊戲…</p>
+      <div class="logo">
+        <span class="logo__mic">🎤</span>
+        <span class="logo__text">百萬大歌星</span>
+      </div>
+      <p class="waiting__hint">等待控制台開始遊戲…</p>
     </div>
 
     <div id="game" class="game hidden">
       <div id="warning-overlay" class="warning-overlay"></div>
-      <div id="warning-icon" class="warning-icon">⚠️</div>
+      <div id="flash" class="flash"></div>
 
       <header class="header">
         <div id="display-round" class="header__round">ROUND 1</div>
         <div id="visualizer" class="visualizer">
-          <div class="visualizer__bar" style="height: 40%; animation-duration: 0.8s"></div>
-          <div class="visualizer__bar" style="height: 80%; animation-duration: 1.2s"></div>
-          <div class="visualizer__bar" style="height: 60%; animation-duration: 0.5s"></div>
-          <div class="visualizer__bar" style="height: 90%; animation-duration: 1s"></div>
-          <div class="visualizer__bar" style="height: 50%; animation-duration: 0.7s"></div>
-          <div class="visualizer__bar" style="height: 70%; animation-duration: 0.9s"></div>
-          <div class="visualizer__bar" style="height: 40%; animation-duration: 1.1s"></div>
+          <div class="visualizer__bar"></div>
+          <div class="visualizer__bar"></div>
+          <div class="visualizer__bar"></div>
+          <div class="visualizer__bar"></div>
+          <div class="visualizer__bar"></div>
+          <div class="visualizer__bar"></div>
+          <div class="visualizer__bar"></div>
+          <div class="visualizer__bar"></div>
+          <div class="visualizer__bar"></div>
         </div>
-        <div id="display-status" class="header__status">Ready</div>
+        <div id="display-status" class="header__status">READY</div>
       </header>
 
       <aside id="menu-container" class="menu"></aside>
@@ -44,10 +53,12 @@
       <main class="stage-main">
         <div id="video-box" class="video-box hidden"></div>
         <div class="lyrics-area">
-          <div id="idle-msg" class="idle-msg">
-            <p id="idle-round-text"></p>
+          <div id="idle-msg" class="idle">
+            <div class="idle__label">ROUND</div>
+            <div id="idle-round-text" class="idle__number">1</div>
+            <div id="idle-sub" class="idle__sub"></div>
           </div>
-          <div id="lyric-container" class="hidden">
+          <div id="lyric-container" class="lyric-stage hidden">
             <div id="lyric-line" class="lyric-line"></div>
           </div>
         </div>

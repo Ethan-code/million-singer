@@ -19,7 +19,7 @@ test("parseLRC: sorting, multi tags, metadata, issues", () => {
     "[00:45.00][00:12.5]副歌",
     "[00:20.92] 第二句",
     "沒有時間",
-    "[00:60.41] *答案*",
+    "[00:60.41] 答案",
   ]);
   assert.deepEqual(lines.map((l) => l.time), [12.5, 20.92, 45, 60.41]);
   assert.equal(lines[0].text, "副歌");
@@ -29,7 +29,7 @@ test("parseLRC: sorting, multi tags, metadata, issues", () => {
 });
 
 test("serialize round trip", () => {
-  const src = ["[00:11.00] （前奏）", "[01:00.41] *一心一德*貫徹始終"];
+  const src = ["[00:11.00] （前奏）", "[01:00.41] 一心一德貫徹始終"];
   assert.deepEqual(lrc.serializeLRC(lrc.parseLRC(src).lines), src);
 });
 
@@ -42,11 +42,17 @@ test("looksLikeLRC / plain / credits", () => {
   assert.equal(lrc.isCreditLine("我愛你"), false);
 });
 
-test("masks", () => {
-  assert.deepEqual(lrc.getMaskAnswers("*一心*一德*貫徹*"), ["一心", "貫徹"]);
-  assert.equal(lrc.hasUnclosedMask("*abc"), true);
-  assert.equal(lrc.stripMasks("*一心*一德"), "一心一德");
-  assert.deepEqual(lrc.maskStarCounts("I love 你們"), [1, 1, 2]);
+test("normalizeSong lines", () => {
+  const s = song.normalizeSong({
+    lines: [{ time: 1.5, text: "a", masked: true }, { text: "b" }, { time: "x", text: 3 }, null],
+  });
+  assert.deepEqual(s.lines, [
+    { time: 1.5, text: "a", masked: true },
+    { time: null, text: "b", masked: false },
+    { time: null, text: "3", masked: false },
+    { time: null, text: "", masked: false },
+  ]);
+  assert.deepEqual(song.normalizeSong({ lrc: ["[00:01.00] x"] }).lines, []); // 舊格式不讀
 });
 
 test("parseYouTubeId", () => {
@@ -74,8 +80,11 @@ test("resolveSource preference", () => {
 });
 
 test("serializeSong omits empty fields", () => {
-  const out = song.serializeSong(song.normalizeSong({ title: "t", filename: "a.mp3", lrc: ["x"] }));
-  assert.deepEqual(Object.keys(out), ["title", "filename", "lrc"]);
+  const out = song.serializeSong(
+    song.normalizeSong({ title: "t", filename: "a.mp3", lines: [{ time: 1, text: "x" }, { text: "y", masked: true }] })
+  );
+  assert.deepEqual(Object.keys(out), ["title", "filename", "lines"]);
+  assert.deepEqual(out.lines, [{ time: 1, text: "x" }, { text: "y", masked: true }]);
 });
 
 test("checkPlaylist", () => {
@@ -83,20 +92,20 @@ test("checkPlaylist", () => {
   assert.equal(checkPlaylist({}, {})[0].level, "error");
   assert.equal(checkPlaylist([], {})[0].message, "題庫是空的");
 
-  const good = [{ title: "a", filename: "ok.mp3", startTime: 0, endTime: 80, lrc: ["[00:10.00] *答*"] }];
+  const good = [{ title: "a", filename: "ok.mp3", startTime: 0, endTime: 80, lines: [{ time: 10, text: "答", masked: true }] }];
   assert.deepEqual(checkPlaylist(good, { fileExists: exists }), []);
 
   const bad = [
-    { title: "b", filename: "missing.mp3", lrc: ["[00:10.00] x"] },
-    { title: "c", filename: "ok.mp3", startTime: 50, endTime: 40, lrc: ["[00:10.00] *x"] },
-    { title: "d", filename: "missing.mp3", youtube: "aqz-KE-bpKQ", endTime: 30, lrc: ["[00:40.00] *y*"] },
+    { title: "b", filename: "missing.mp3", lines: [{ time: 10, text: "x" }] },
+    { title: "c", filename: "ok.mp3", startTime: 50, endTime: 40, lines: [{ time: 10, text: "x", masked: true }, { text: "沒時間" }] },
+    { title: "d", filename: "missing.mp3", youtube: "aqz-KE-bpKQ", endTime: 30, lines: [{ time: 40, text: "y", masked: true }] },
   ];
   const issues = checkPlaylist(bad, { fileExists: exists });
   const msgs = issues.map((i) => `${i.round}:${i.level}:${i.message}`);
   assert.ok(msgs.some((m) => m.startsWith("1:error:找不到音檔")), msgs.join("\n"));
   assert.ok(msgs.some((m) => m.startsWith("1:warning:沒有遮字句")));
   assert.ok(msgs.some((m) => m.startsWith("2:error:開始時間")));
-  assert.ok(msgs.some((m) => m.includes("沒有成對")));
+  assert.ok(msgs.some((m) => m.startsWith("2:warning:還有 1 行沒有時間")));
   assert.ok(msgs.some((m) => m.startsWith("3:warning:找不到音檔") && m.includes("YouTube")));
   assert.ok(msgs.some((m) => m.startsWith("3:warning:使用 YouTube")));
   assert.ok(msgs.some((m) => m.startsWith("3:warning:") && m.includes("播放範圍外")));
@@ -111,7 +120,7 @@ test("writePlaylist keeps timestamped backups", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ms-"));
   fs.mkdirSync(path.join(dir, "playlists"));
   const file = library.createPlaylist(dir, "測試");
-  const song = { title: "a", lrc: ["[00:01.00] x"] };
+  const song = { title: "a", lines: [{ time: 1, text: "x" }] };
   library.writePlaylist(dir, file, [song]);
   const backups = fs.readdirSync(path.join(dir, "playlists", ".backup"));
   assert.equal(backups.length, 1);
@@ -126,7 +135,7 @@ test("fillMissingTimes interpolates by character count", () => {
     { time: null, text: "五六七八" },
     { time: 20, text: "下一句" },
     { time: null, text: "尾巴兩句" },
-    { time: null, text: "*最後*" },
+    { time: null, text: "最後兩字" },
   ];
   assert.equal(lrc.fillMissingTimes(lines), 3);
   assert.equal(lines[1].time, 15); // 10 + (20-10) * 4/8

@@ -2,7 +2,6 @@
 // 指令來源：控制台、手機遙控（經主程式轉送 "game:command"）與本視窗的鍵盤。
 // 每次狀態改變都把快照送回主程式（"game:state"），控制台與手機據此顯示答案與進度。
 const { ipcRenderer } = require("electron");
-const lrc = require("../shared/lrc");
 const { resolveSource, STOP_LEAD } = require("../shared/song");
 const { checkPlaylist } = require("../shared/checker");
 const library = require("../shared/library");
@@ -127,34 +126,32 @@ const els = {
 // ==========================================
 
 // 把一句歌詞拆成顯示單位：一般字、遮字牌（中文一字一張，英文一個單字一張）
-function splitUnits(text) {
+function splitUnits(text, masked) {
   const units = [];
-  for (const part of String(text).split(/(\*.*?\*)/)) {
-    const m = /^\*(.*)\*$/.exec(part);
-    if (m && m[1]) {
-      for (const word of m[1].split(" ")) {
-        if (!word) continue;
-        const pieces = /^[\x00-\xff]*$/.test(word) ? [word] : [...word];
-        pieces.forEach((p) => units.push({ text: p, masked: true }));
-        units.push({ text: " ", space: true });
-      }
-      if (units.at(-1)?.space) units.pop();
-    } else {
-      for (const ch of part) units.push(ch === " " ? { text: " ", space: true } : { text: ch, masked: false });
-    }
+  if (!masked) {
+    for (const ch of String(text)) units.push(ch === " " ? { text: " ", space: true } : { text: ch, masked: false });
+    return units;
   }
+  for (const word of String(text).trim().split(/\s+/)) {
+    if (!word) continue;
+    const pieces = /^[\x00-\xff]*$/.test(word) ? [word] : [...word];
+    pieces.forEach((p) => units.push({ text: p, masked: true }));
+    units.push({ text: " ", space: true });
+  }
+  if (units.at(-1)?.space) units.pop();
   return units;
 }
 
 // 連續的遮字句算同一題：只在第一句前停，整組一起顯示、一起揭曉、分數合計。
 // group 是同組各句的索引；head 是第一句（停點、提示數、判定都記在它身上）。
 function buildLyrics(song) {
-  const lines = lrc.parseLRC(song.lrc).lines.map((line) => {
-    const units = splitUnits(line.text);
+  const timed = song.lines.filter((l) => l.time !== null && l.text.trim()).sort((a, b) => a.time - b.time);
+  const lines = timed.map((line) => {
+    const units = splitUnits(line.text, line.masked);
     const maskUnits = units.filter((u) => u.masked).length;
     return {
       time: line.time,
-      rawText: line.text,
+      text: line.text,
       units,
       hasMask: maskUnits > 0,
       maskUnits,
@@ -1109,11 +1106,10 @@ function snapshot() {
     endTime: state.config.endTime,
     sourceType: state.source?.type || null,
     countdown: state.countdown,
-    currentLine: current ? { text: current.rawText, hasMask: current.hasMask, isAnswered: current.isAnswered } : null,
+    currentLine: current ? { text: current.text, hasMask: current.hasMask, isAnswered: current.isAnswered } : null,
     focusMask: focus
       ? {
-          text: groupLines(focus.line).map((l) => l.rawText).join(" / "),
-          answers: groupLines(focus.line).flatMap((l) => lrc.getMaskAnswers(l.rawText)),
+          answers: groupLines(focus.line).map((l) => l.text),
           stopAt: focus.line.stopAt,
           inSeconds: Math.max(0, focus.line.stopAt - t),
           isCurrent: state.roundState === RoundState.LOCKED,

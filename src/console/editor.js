@@ -31,22 +31,18 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
-// LRC 字串陣列 → 編輯用的行（保留原順序；沒有時間標籤的行時間為 null）
+// 匯入的 LRC 字串陣列 → 編輯用的行（保留原順序；沒有時間標籤的行時間為 null）
 function linesFromLrc(lrcLines) {
   const out = [];
   for (const raw of lrcLines) {
     const trimmed = String(raw).trim();
     if (!trimmed || /^\[[a-z]+:.*\]$/i.test(trimmed)) continue;
     const parsed = lrc.parseLRC([trimmed]).lines;
-    if (parsed.length) out.push(...parsed.map((l) => ({ time: l.time, text: l.text })));
-    else out.push({ time: null, text: trimmed });
+    if (parsed.length) out.push(...parsed.map((l) => ({ time: l.time, text: l.text, masked: false })));
+    else out.push({ time: null, text: trimmed, masked: false });
   }
   if (out.every((l) => l.time !== null)) out.sort((a, b) => a.time - b.time);
   return out;
-}
-
-function linesToLrc(lines) {
-  return lines.map((l) => (l.time === null ? l.text : `[${lrc.formatTime(l.time)}] ${l.text}`));
 }
 
 function round2(t) {
@@ -58,7 +54,7 @@ function round2(t) {
 function openEditor({ container, dataDir, playlistFile, songs, index, onClose }) {
   current?.destroy();
   const isNew = index === null || index === undefined;
-  const base = isNew ? { title: "", artist: "", filename: "", url: "", youtube: "", youtubeOffset: 0, startTime: 0, endTime: 0, lrc: [] } : songs[index];
+  const base = isNew ? { title: "", artist: "", filename: "", url: "", youtube: "", youtubeOffset: 0, startTime: 0, endTime: 0, lines: [] } : songs[index];
 
   const draft = {
     title: base.title,
@@ -69,7 +65,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     youtubeOffset: base.youtubeOffset,
     startTime: base.startTime,
     endTime: base.endTime,
-    lines: linesFromLrc(base.lrc),
+    lines: base.lines.map((l) => ({ time: l.time, text: l.text, masked: !!l.masked })),
   };
 
   const ed = {
@@ -408,7 +404,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
   function testStop(i) {
     const line = draft.lines[i];
     if (!ed.player || !line || line.time === null) return;
-    if (!lrc.hasMask(line.text)) {
+    if (!line.masked) {
       toast("這句沒有遮字", "warning");
       return;
     }
@@ -528,7 +524,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     // 歌詞時間標記
     draft.lines.forEach((line, i) => {
       if (line.time === null || line.time < start || line.time > end) return;
-      const masked = lrc.hasMask(line.text);
+      const masked = line.masked;
       g.fillStyle = i === ed.selected ? "#fff" : masked ? "#ffcc00" : "#888";
       g.fillRect(x(line.time) - (i === ed.selected ? 1 : 0), 0, i === ed.selected ? 3 : 1, h);
       if (masked) {
@@ -577,35 +573,18 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     if (scroll) refs.lines.children[ed.selected]?.scrollIntoView({ block: "nearest" });
   }
 
-  // ★：沒選字＝整句遮（最常用）；選了字＝只遮選取的部分；游標在 *…* 裡＝取消那段遮字
-  function toggleMask(input) {
-    const i = Number(input.dataset.index);
-    const v = input.value;
-    const a = input.selectionStart ?? 0;
-    const b = input.selectionEnd ?? 0;
-    const focused = document.activeElement === input || ed.lastFocused === input;
-    if (focused && b > a) {
-      input.value = v.slice(0, a) + "*" + v.slice(a, b) + "*" + v.slice(b);
-    } else if (lrc.hasMask(v)) {
-      // 已有遮字：游標在某段裡就取消那段，否則全部取消
-      const before = v.lastIndexOf("*", a - 1);
-      const after = v.indexOf("*", a);
-      const starsBefore = (v.slice(0, Math.max(0, before)).match(/\*/g) || []).length;
-      const inside = focused && before !== -1 && after !== -1 && starsBefore % 2 === 0;
-      input.value = inside ? v.slice(0, before) + v.slice(before + 1, after) + v.slice(after + 1) : lrc.stripMasks(v);
-    } else {
-      const text = v.trim();
-      if (!text) return;
-      input.value = `*${text}*`;
-    }
-    draft.lines[i].text = input.value;
+  // ★／M：整句遮字開關。只想遮半句就先用 ✂ 拆成兩行
+  function toggleMask(i) {
+    const line = draft.lines[i];
+    if (!line || (!line.masked && !line.text.trim())) return;
+    line.masked = !line.masked;
     markDirty();
     renderLines();
   }
 
   function renderLines() {
     const rows = draft.lines.map((line, i) => {
-      const masked = lrc.hasMask(line.text);
+      const masked = line.masked;
       const timeInput = el("input", {
         class: "input input--time" + (line.time === null ? " is-empty" : ""),
         value: line.time === null ? "" : lrc.formatTime(line.time),
@@ -626,7 +605,6 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       textInput.addEventListener("focus", () => (ed.lastFocused = textInput));
       textInput.addEventListener("input", () => {
         line.text = textInput.value;
-        row.classList.toggle("is-masked", lrc.hasMask(line.text));
         markDirty();
       });
       const row = el(
@@ -636,7 +614,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
         el("button", { class: "btn btn--small", text: "−", title: `早 ${NUDGE} 秒`, onclick: () => nudge(i, -NUDGE) }),
         el("button", { class: "btn btn--small", text: "+", title: `晚 ${NUDGE} 秒`, onclick: () => nudge(i, NUDGE) }),
         textInput,
-        el("button", { class: "btn btn--small", text: "★", title: "整句遮字（先選取文字則只遮選取部分；再按一次取消）", onmousedown: (e) => e.preventDefault(), onclick: () => toggleMask(textInput) }),
+        el("button", { class: "btn btn--small", text: "★", title: "整句遮字，再按一次取消 (M)", onmousedown: (e) => e.preventDefault(), onclick: () => toggleMask(i) }),
         el("button", { class: "btn btn--small", text: "✂", title: "拆句：從游標位置拆成兩行（沒放游標就從空白或中間拆）(X)", onmousedown: (e) => e.preventDefault(), onclick: () => splitLine(i, textInput) }),
         el("button", { class: "btn btn--small", text: "▶", title: "從這句前 1 秒播放 (P)", onclick: () => line.time !== null && playFrom(line.time - 1) }),
         masked ? el("button", { class: "btn btn--small btn--danger", text: "🎯", title: "試停 (T)", onclick: () => testStop(i) }) : el("span", { class: "ed-line__pad" }),
@@ -668,16 +646,9 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       const m = /[ \u3000，,、。！？!?；;]/.exec(text.slice(1, -1));
       pos = m ? m.index + 1 : Math.floor(len / 2);
     }
-    let left = text.slice(0, pos);
-    let right = text.slice(pos);
-    // 拆在 *…* 中間：兩邊各自補上星號，遮字範圍不會壞掉
-    if ((left.match(/\*/g) || []).length % 2 === 1) {
-      left += "*";
-      right = "*" + right;
-    }
-    left = left.replace(/[ \u3000，,、]+$/, "").trim();
-    right = right.replace(/^[ \u3000，,、]+/, "").trim();
-    if (!left || !right || right === "**" || left === "**") {
+    const left = text.slice(0, pos).replace(/[ \u3000，,、]+$/, "").trim();
+    const right = text.slice(pos).replace(/^[ \u3000，,、]+/, "").trim();
+    if (!left || !right) {
       toast("這裡拆不開，請把游標放在要拆的位置", "warning");
       return;
     }
@@ -685,18 +656,19 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     if (line.time !== null) {
       const next = draft.lines.slice(i + 1).find((l) => l.time !== null && l.time > line.time);
       const end = next ? next.time : line.time + len * 0.4;
-      const ratio = lrc.stripMasks(left).length / Math.max(1, lrc.stripMasks(left).length + lrc.stripMasks(right).length);
+      const ratio = left.length / Math.max(1, left.length + right.length);
       t2 = round2(line.time + (end - line.time) * ratio);
     }
     line.text = left;
-    draft.lines.splice(i + 1, 0, { time: t2, text: right });
+    // 兩半都沿用原本的遮字狀態；只想遮其中一半，再對另一行按 M 取消
+    draft.lines.splice(i + 1, 0, { time: t2, text: right, masked: line.masked });
     markDirty();
     renderLines();
     select(i + 1);
     toast(t2 === null ? "已拆成兩行" : `已拆成兩行，後半句時間估為 ${lrc.formatTime(t2)}，請試聽確認`);
   }
 
-  // 合併：把下一行接到這一行後面（拆錯時用）
+  // 合併：把下一行接到這一行後面（拆錯時用），遮字狀態跟著這一行
   function joinLine(i) {
     const line = draft.lines[i];
     const next = draft.lines[i + 1];
@@ -718,7 +690,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
   function insertLine() {
     const at = ed.selected >= 0 ? ed.selected + 1 : draft.lines.length;
     // 新行不帶時間：帶入播放位置容易是錯的時間，重新載入時排序會把行打亂
-    draft.lines.splice(at, 0, { time: null, text: "" });
+    draft.lines.splice(at, 0, { time: null, text: "", masked: false });
     markDirty();
     renderLines();
     select(at);
@@ -972,16 +944,14 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
   function toSong() {
     return {
       ...draft,
-      lrc: linesToLrc(draft.lines),
+      lines: draft.lines.map((l) => ({ time: l.time, text: l.text, masked: !!l.masked })),
       title: draft.title.trim(),
     };
   }
 
   function renderIssues() {
     const issues = checkSong(toSong(), 0, { fileExists });
-    const untimed = draft.lines.filter((l) => l.time === null).length;
     const items = issues.map((x) => el("div", { class: x.level === "error" ? "is-error" : "is-warning", text: `${x.level === "error" ? "❌" : "⚠️"} ${x.message}` }));
-    if (untimed) items.unshift(el("div", { class: "is-warning", text: `⚠️ 還有 ${untimed} 行沒有時間（遊戲中不會顯示）` }));
     if (!items.length) items.push(el("div", { class: "ok", text: "✓ 沒有問題" }));
     refs.issues.replaceChildren(...items);
   }
@@ -1008,7 +978,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       } else {
         list[ed.savedIndex ?? index] = song;
       }
-      library.writePlaylist(dataDir, playlistFile, list.map((s) => ({ ...s, lrc: s.lrc })));
+      library.writePlaylist(dataDir, playlistFile, list);
       songs.splice(0, songs.length, ...list);
       ed.dirty = false;
       refs.save.classList.remove("btn--primary");
@@ -1111,11 +1081,9 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
       case "KeyJ":
         joinLine(ed.selected);
         break;
-      case "KeyM": {
-        const input = refs.lines.children[ed.selected]?.querySelector(".ed-line__text");
-        if (input) toggleMask(input);
+      case "KeyM":
+        toggleMask(ed.selected);
         break;
-      }
       case "KeyS":
         if (e.ctrlKey) {
           e.preventDefault();
@@ -1159,4 +1127,4 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
   return api;
 }
 
-module.exports = { openEditor, linesFromLrc, linesToLrc };
+module.exports = { openEditor, linesFromLrc };

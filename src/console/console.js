@@ -148,7 +148,7 @@ function renderDetail() {
   const top = state.issues.filter((i) => i.round === 0);
   const rows = state.songs.map((song, i) => {
     const issues = state.issues.filter((x) => x.round === i + 1);
-    const masks = lrc.parseLRC(song.lrc).lines.filter((l) => lrc.hasMask(l.text)).length;
+    const masks = song.lines.filter((l) => l.masked && l.time !== null).length;
     return el(
       "tr",
       {},
@@ -318,8 +318,8 @@ const STATUS_TEXT = {
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-function highlightAnswers(text) {
-  return escapeHtml(text).replace(/\*(.*?)\*/g, "<mark>$1</mark>");
+function lineHtml(line) {
+  return line.hasMask ? `<mark>${escapeHtml(line.text)}</mark>` : escapeHtml(line.text);
 }
 
 let lastRoundsKey = "";
@@ -353,10 +353,9 @@ function renderGame(g) {
     $("gp-answer-label").textContent = f.isCurrent
       ? "⏸ 停住了！答案是"
       : `下一個遮字（${f.inSeconds.toFixed(1)} 秒後）`;
+    // 遮字一律整句，答案就是整句歌詞；連續遮字句（一題多行）用全形空白隔開
     $("gp-answer-text").textContent = f.answers.join("　");
-    // 整句遮字時，下面那行和答案一樣，不重複顯示
-    const whole = lrc.stripMasks(f.text).trim() === f.answers.join(" ").trim();
-    $("gp-answer-line").innerHTML = whole ? "" : highlightAnswers(f.text);
+    $("gp-answer-line").innerHTML = "";
     const team = g.turn >= 0 ? g.teams[g.turn]?.name : "";
     $("gp-answer-meta").textContent =
       (team ? `輪到 ${team}・` : "") + `${f.points} 分` + (f.hinted ? `（已提示 ${f.hinted} 字）` : "");
@@ -364,7 +363,7 @@ function renderGame(g) {
     $("gp-answer-meta").textContent = "";
     $("gp-answer-label").textContent = g.maskCount ? "這首的遮字都答完了" : "這首沒有遮字";
     $("gp-answer-text").textContent = "—";
-    $("gp-answer-line").innerHTML = g.currentLine ? highlightAnswers(g.currentLine.text) : "";
+    $("gp-answer-line").innerHTML = g.currentLine ? lineHtml(g.currentLine) : "";
   }
 
   // 按鈕狀態

@@ -3,7 +3,12 @@
 // 題庫 JSON 是歌曲陣列，每首歌欄位：
 //   title, artist, filename（songs/ 內的檔名）, url, youtube（影片 ID）,
 //   youtubeOffset（YouTube 版本相對於歌詞時間軸的偏移秒數）,
-//   startTime, endTime, lrc（字串陣列）
+//   startTime, endTime, lines
+//
+// lines 是歌詞行陣列：{ time, text, masked }
+//   time：秒（數字）；還沒對時間的行省略（遊戲中不顯示）
+//   text：純文字歌詞
+//   masked：true 表示整句遮字（題目）；false 省略
 
 const YT_ID = /^[A-Za-z0-9_-]{11}$/;
 
@@ -38,13 +43,18 @@ function num(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function normalizeLine(raw) {
+  const l = raw && typeof raw === "object" ? raw : {};
+  const t = Number(l.time);
+  return {
+    time: l.time !== null && l.time !== undefined && l.time !== "" && Number.isFinite(t) && t >= 0 ? t : null,
+    text: String(l.text ?? ""),
+    masked: l.masked === true,
+  };
+}
+
 function normalizeSong(raw) {
   const s = raw && typeof raw === "object" ? raw : {};
-  const lrc = Array.isArray(s.lrc)
-    ? s.lrc.map(String)
-    : typeof s.lrc === "string"
-      ? s.lrc.split(/\r?\n/)
-      : [];
   return {
     title: String(s.title || ""),
     artist: String(s.artist || ""),
@@ -54,11 +64,19 @@ function normalizeSong(raw) {
     youtubeOffset: num(s.youtubeOffset),
     startTime: Math.max(0, num(s.startTime)),
     endTime: Math.max(0, num(s.endTime)),
-    lrc,
+    lines: Array.isArray(s.lines) ? s.lines.map(normalizeLine) : [],
   };
 }
 
-// 存檔用：省略空欄位，保持 JSON 精簡、與舊版相容
+function serializeLine(line) {
+  const out = {};
+  if (line.time !== null && line.time !== undefined) out.time = line.time;
+  out.text = line.text;
+  if (line.masked) out.masked = true;
+  return out;
+}
+
+// 存檔用：省略空欄位，保持 JSON 精簡
 function serializeSong(song) {
   const out = { title: song.title };
   if (song.artist) out.artist = song.artist;
@@ -68,7 +86,7 @@ function serializeSong(song) {
   if (song.youtube && song.youtubeOffset) out.youtubeOffset = song.youtubeOffset;
   if (song.startTime) out.startTime = song.startTime;
   if (song.endTime) out.endTime = song.endTime;
-  out.lrc = song.lrc;
+  out.lines = (song.lines || []).map(serializeLine);
   return out;
 }
 
@@ -96,6 +114,7 @@ function needsNetwork(source) {
 module.exports = {
   STOP_LEAD,
   parseYouTubeId,
+  normalizeLine,
   normalizeSong,
   serializeSong,
   resolveSource,

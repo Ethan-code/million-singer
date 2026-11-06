@@ -285,7 +285,7 @@
           $("answer-text").textContent = f.answers.join("　");
           const team = g.turn >= 0 && g.teams[g.turn] ? g.teams[g.turn].name : "";
           $("answer-meta").textContent = (team ? `輪到 ${team}・` : "") + `${f.points} 分`;
-          $("answer-line").innerHTML = esc(f.text).replace(/\*(.*?)\*/g, "<mark>$1</mark>");
+          $("answer-line").textContent = "";
         } else {
           $("answer-meta").textContent = "";
           $("answer-label").textContent = g.maskCount ? "這首的遮字都答完了" : "這首沒有遮字";

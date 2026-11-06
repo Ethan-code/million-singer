@@ -1,5 +1,5 @@
 // 題庫檢查：上台前找出會出事的地方（純函式）
-const { parseLRC, hasMask, hasUnclosedMask, formatTime } = require("./lrc");
+const { formatTime } = require("./lrc");
 const { normalizeSong, resolveSource, needsNetwork } = require("./song");
 
 // 回傳 [{ round（從 1 起算，0 代表整個題庫）, level: "error"|"warning", message }]
@@ -36,21 +36,17 @@ function checkSong(song, round, { fileExists, prefer } = {}) {
     add("error", `開始時間（${song.startTime}s）不早於結束時間（${song.endTime}s）`);
   }
 
-  const { lines, issues: lrcIssues } = parseLRC(song.lrc);
-  for (const issue of lrcIssues) {
-    add("warning", `歌詞第 ${issue.lineNo} 行：${issue.reason}`);
-  }
+  const untimed = song.lines.filter((l) => l.time === null && l.text.trim()).length;
+  if (untimed) add("warning", `還有 ${untimed} 行沒有時間（遊戲中不會顯示）`);
+  const lines = song.lines.filter((l) => l.time !== null && l.text.trim());
   if (lines.length === 0) {
     add("error", "沒有可用的歌詞");
     return issues;
   }
 
-  const masked = lines.filter((l) => hasMask(l.text));
+  const masked = lines.filter((l) => l.masked);
   if (masked.length === 0) add("warning", "沒有遮字句（不會停下來）");
 
-  for (const l of lines) {
-    if (hasUnclosedMask(l.text)) add("warning", `[${formatTime(l.time)}] 遮字的 * 沒有成對`);
-  }
   const end = song.endTime > 0 ? song.endTime : Infinity;
   for (const l of masked) {
     if (l.time < song.startTime || l.time >= end) {

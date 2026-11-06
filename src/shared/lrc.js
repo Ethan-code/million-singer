@@ -1,8 +1,8 @@
-// LRC 歌詞與遮字的純函式工具（renderer 與測試共用，不碰 DOM）
+// LRC 歌詞匯入與時間工具（renderer 與測試共用，不碰 DOM）
+// 遮字不寫在歌詞文字裡，是每行的 masked 旗標（見 shared/song.js）。
 
 const TIME_TAG = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
 const META_TAG = /^\[[a-z]+:.*\]$/i; // [ar:歌手] 之類的標頭
-const MASK = /\*(.*?)\*/g;
 
 // 常見的製作資訊行（作詞、作曲…），匯入時清掉
 const CREDIT_LINE =
@@ -91,38 +91,11 @@ function cleanLines(lines) {
   return lines.filter((l) => l.text.trim() && !isCreditLine(l.text));
 }
 
-// ---------- 遮字 ----------
-
-function getMaskAnswers(text) {
-  return [...String(text).matchAll(MASK)].map((m) => m[1]).filter(Boolean);
-}
-
-function hasMask(text) {
-  return getMaskAnswers(text).length > 0;
-}
-
-// 星號不成對（少一個 *）
-function hasUnclosedMask(text) {
-  return (String(text).match(/\*/g) || []).length % 2 === 1;
-}
-
-function stripMasks(text) {
-  return String(text).replace(MASK, "$1");
-}
-
-// 遮字要顯示幾顆星：英文（半形）單字一顆，其他依字數
-function maskStarCounts(answer) {
-  return answer
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => (/^[\x00-\xff]*$/.test(part) ? 1 : [...part].length));
-}
-
 // 補上沒有時間的行：夾在兩個有時間的行之間就依字數比例分配；
 // 後面沒有參考點時，每個字抓 secondsPerChar 秒往後推。回傳補了幾行。
 // lines: [{ time: number|null, text }]，會直接修改。
 function fillMissingTimes(lines, { secondsPerChar = 0.4, startTime = 0 } = {}) {
-  const len = (l) => Math.max(1, stripMasks(l.text).replace(/\s/g, "").length);
+  const len = (l) => Math.max(1, l.text.replace(/\s/g, "").length);
   let filled = 0;
   let i = 0;
   while (i < lines.length) {
@@ -161,9 +134,4 @@ module.exports = {
   parsePlainLyrics,
   isCreditLine,
   cleanLines,
-  getMaskAnswers,
-  hasMask,
-  hasUnclosedMask,
-  stripMasks,
-  maskStarCounts,
 };

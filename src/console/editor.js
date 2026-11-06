@@ -191,6 +191,7 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
           { class: "ed-tools" },
           el("span", { class: "ed-tools__label", text: "時間" }),
           refs.tapBtn,
+          el("button", { class: "btn btn--small", text: "↺ 重置時間", title: "清掉所有歌詞時間，接著用打拍子重新設定", onclick: resetTimes }),
           el("button", { class: "btn btn--small", text: "⏱ 自動補時間", title: "沒有時間的行，依前後句與字數估算", onclick: autoFill }),
           el("button", { class: "btn btn--small", text: "⇆ 全部平移", onclick: shiftAll }),
           el("button", { class: "btn btn--small", text: "↕ 依時間排序", onclick: sortLines }),
@@ -735,6 +736,27 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     draft.lines.sort((a, b) => (a.time ?? Infinity) - (b.time ?? Infinity));
     markDirty();
     renderLines();
+  }
+
+  // 重置：清掉全部時間，回到開始時間並進入打拍子模式，播放後逐句按 Space 重新設定
+  async function resetTimes() {
+    if (!draft.lines.length) return;
+    const ok = await modal.confirmDialog(
+      "重置歌詞時間",
+      "清掉所有歌詞的時間（歌詞文字與遮字不變），接著用打拍子重新設定。\n還沒儲存前都可以按「返回題庫 → 不儲存」放棄。",
+      { okLabel: "重置", danger: true }
+    );
+    if (!ok) return;
+    for (const line of draft.lines) line.time = null;
+    markDirty();
+    renderLines();
+    select(0);
+    if (ed.player) {
+      ed.player.pause();
+      seekTo(draft.startTime);
+    }
+    setTapMode(true);
+    toast("已清除時間。按 ▶ 播放，每句開唱時按 Space；Backspace 回上一句，Esc 結束。");
   }
 
   function autoFill() {

@@ -2,6 +2,11 @@ const fs = require("fs");
 const path = require("path");
 const { pathToFileURL } = require("url");
 const { ipcRenderer } = require("electron");
+const lrc = require("./src/shared/lrc");
+const { normalizeSong, resolveSource } = require("./src/shared/song");
+const { checkPlaylist, summarize } = require("./src/shared/checker");
+const { toast, dismiss } = require("./src/ui/toast");
+const { createGuard } = require("./src/ui/guard");
 
 // ==========================================
 // 狀態
@@ -24,6 +29,9 @@ const state = {
   availableFiles: [],
   selectionIndex: -1,
   selectedFile: null,
+  // 檢查有問題時，要再按一次開始才進遊戲
+  confirmFile: null,
+  roundIssues: {}, // round（從 1 起算）→ issues
   // 遊戲
   playlist: [],
   currentTrackIndex: 0,
@@ -68,6 +76,7 @@ const els = {
   },
   audio: $("audioPlayer"),
   status: $("load-status"),
+  checkList: $("check-list"),
   playlistList: $("playlist-container"),
   dataDirPath: $("data-dir-path"),
   titlePanel: $("title-panel"),
@@ -152,6 +161,7 @@ function scanPlaylists() {
   state.selectedFile = null;
   state.availableFiles = [];
   state.selectionIndex = -1;
+  clearCheckList();
   els.btns.start.classList.add("btn--disabled");
 
   if (!state.dataDirOk) {
@@ -195,6 +205,7 @@ function selectPlaylistByIndex(index) {
   if (count === 0) return;
   index = Math.max(0, Math.min(index, count - 1));
 
+  if (state.selectedFile !== state.availableFiles[index]) clearCheckList();
   state.selectionIndex = index;
   state.selectedFile = state.availableFiles[index];
   const items = els.playlistList.children;
@@ -205,20 +216,70 @@ function selectPlaylistByIndex(index) {
   els.btns.start.classList.remove("btn--disabled");
 }
 
+const songFileExists = (filename) =>
+  fs.existsSync(PathHelper.songFile(filename));
+
+function clearCheckList() {
+  state.confirmFile = null;
+  els.checkList.replaceChildren();
+  els.checkList.classList.add("hidden");
+}
+
+function showCheckList(issues) {
+  const items = issues.map((issue) => {
+    const li = document.createElement("li");
+    li.className = issue.level === "error" ? "is-error" : "is-warning";
+    const where = issue.round > 0 ? `Round ${issue.round}：` : "";
+    li.textContent = `${issue.level === "error" ? "❌" : "⚠️"} ${where}${issue.message}`;
+    return li;
+  });
+  const hint = document.createElement("li");
+  hint.className = "check-list__hint";
+  hint.textContent = "再按一次「開始遊戲」照樣開始，有問題的 Round 會標 ⚠️";
+  els.checkList.replaceChildren(...items, hint);
+  els.checkList.classList.remove("hidden");
+}
+
 function loadSelectedPlaylist() {
   if (!state.selectedFile) return;
-  const filePath = PathHelper.playlistFile(state.selectedFile);
+  const file = state.selectedFile;
+
+  let data;
   try {
-    const pl = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    if (!Array.isArray(pl) || pl.length === 0) {
-      throw new Error("格式錯誤：必須是包含歌曲的陣列");
-    }
-    state.playlist = pl;
-    switchScreen("game");
-    loadSong(0);
+    data = JSON.parse(fs.readFileSync(PathHelper.playlistFile(file), "utf-8"));
   } catch (e) {
-    alert("讀取題庫失敗: " + e.message);
+    toast(`讀取題庫失敗：${e.message}`, "error");
+    return;
   }
+
+  const issues = checkPlaylist(data, { fileExists: songFileExists });
+  const { errors } = summarize(issues);
+  // 題庫本身壞掉（不是陣列或空的）沒辦法玩
+  if (issues.some((i) => i.round === 0)) {
+    showCheckList(issues);
+    els.checkList.lastChild.textContent = "請修正題庫後再試";
+    return;
+  }
+  if (issues.length > 0 && state.confirmFile !== file) {
+    state.confirmFile = file;
+    showCheckList(issues);
+    toast(
+      errors > 0 ? `題庫有 ${errors} 個錯誤，請確認` : "題庫有警告，請確認",
+      errors > 0 ? "error" : "warning",
+      { key: "check", duration: 4000 }
+    );
+    return;
+  }
+
+  state.roundIssues = {};
+  for (const issue of issues) {
+    (state.roundIssues[issue.round] ||= []).push(issue);
+  }
+  clearCheckList();
+  dismiss("check");
+  state.playlist = data.map(normalizeSong);
+  switchScreen("game");
+  loadSong(0);
 }
 
 // ==========================================
@@ -235,6 +296,7 @@ function isScreenVisible(screenName) {
 }
 
 function goHome() {
+  guard.clear();
   stopSync();
   clearRoundTimers();
   els.audio.pause();
@@ -247,19 +309,13 @@ function bindEvents() {
   els.btns.openDir.addEventListener("click", openDataDir);
   els.btns.changeDir.addEventListener("click", changeDataDir);
 
-  els.btns.exit.addEventListener("click", goHome);
+  els.btns.exit.addEventListener("click", () => guarded("home"));
   els.btns.toggle.addEventListener("click", togglePlay);
   els.btns.reveal.addEventListener("click", () => reveal(RevealType.CORRECT));
   els.btns.answer.addEventListener("click", () => reveal(RevealType.ANSWER));
-  els.btns.reset.addEventListener("click", () =>
-    loadSong(state.currentTrackIndex)
-  );
-  els.btns.prev.addEventListener("click", () =>
-    loadSong(state.currentTrackIndex - 1)
-  );
-  els.btns.next.addEventListener("click", () =>
-    loadSong(state.currentTrackIndex + 1)
-  );
+  els.btns.reset.addEventListener("click", () => guarded("reset"));
+  els.btns.prev.addEventListener("click", () => guarded("prev"));
+  els.btns.next.addEventListener("click", () => guarded("next"));
 
   els.displays.round.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -294,9 +350,10 @@ function bindEvents() {
     stopSync();
     updateUI();
   });
-  els.audio.addEventListener("error", (e) => {
-    console.error("Audio Error", e);
-    alert("音訊載入失敗，請確認 songs 資料夾內是否有該檔案。");
+  els.audio.addEventListener("error", () => {
+    if (!els.audio.getAttribute("src")) return;
+    console.error("Audio Error", els.audio.error);
+    toast(`Round ${state.currentTrackIndex + 1} 音訊載入失敗`, "error");
   });
 }
 
@@ -337,18 +394,48 @@ function handleGameKey(e) {
       reveal(RevealType.ANSWER);
       break;
     case "KeyR":
-      loadSong(state.currentTrackIndex);
+      guarded("reset", "R");
       break;
     case "ArrowRight":
-      loadSong(state.currentTrackIndex + 1);
+      guarded("next", "→");
       break;
     case "ArrowLeft":
-      loadSong(state.currentTrackIndex - 1);
+      guarded("prev", "←");
       break;
     case "KeyH":
-      goHome();
+      guarded("home", "H");
       break;
   }
+}
+
+// ==========================================
+// 防誤觸：歌曲進行中，切歌／重來／回首頁要按兩次
+// ==========================================
+
+const guard = createGuard({
+  onPrompt: (label) => toast(label, "warning", { key: "guard", duration: 2000 }),
+  onCancel: () => dismiss("guard"),
+});
+
+const GUARDED_ACTIONS = {
+  home: { label: "回首頁", run: () => goHome() },
+  reset: { label: "重來這一首", run: () => loadSong(state.currentTrackIndex) },
+  next: { label: "下一首", run: () => loadSong(state.currentTrackIndex + 1) },
+  prev: { label: "上一首", run: () => loadSong(state.currentTrackIndex - 1) },
+};
+
+function guarded(name, keyLabel = "按鈕") {
+  const action = GUARDED_ACTIONS[name];
+  const inProgress = state.roundState !== RoundState.IDLE;
+  guard.run(
+    name,
+    `再按一次 ${keyLabel} ${action.label}`,
+    () => {
+      dismiss("guard");
+      action.run();
+    },
+    inProgress
+  );
 }
 
 // ==========================================
@@ -360,17 +447,25 @@ function loadSong(index) {
   state.currentTrackIndex = index;
   const song = state.playlist[index];
 
-  let songUrl = song.url;
-  if (!songUrl && song.filename) {
-    songUrl = pathToFileURL(PathHelper.songFile(song.filename)).href;
+  const source = resolveSource(song, { fileExists: songFileExists });
+  let songUrl = "";
+  if (source?.type === "file") {
+    songUrl = pathToFileURL(PathHelper.songFile(source.filename)).href;
+  } else if (source?.type === "url") {
+    songUrl = source.url;
+  } else {
+    toast(`Round ${index + 1} 沒有可播放的本地音源`, "error");
   }
 
   state.config = {
     startTime: song.startTime || 0,
     endTime: song.endTime || 0,
   };
-  state.lyricsData = parseLRC(song.lrc).map((line) => ({
-    ...line,
+  state.lyricsData = lrc.parseLRC(song.lrc).lines.map((line) => ({
+    time: line.time,
+    rawText: line.text,
+    hasMask: lrc.hasMask(line.text),
+    isAnswered: false,
     stopAt: Math.max(0, line.time - STOP_LEAD),
   }));
   state.roundState = RoundState.IDLE;
@@ -379,7 +474,8 @@ function loadSong(index) {
   state.revealType = null;
   stopSync();
   clearRoundTimers();
-  els.audio.src = songUrl;
+  if (songUrl) els.audio.src = songUrl;
+  else els.audio.removeAttribute("src");
   els.audio.currentTime = state.config.startTime;
   els.audio.load();
   buildMenu();
@@ -626,15 +722,10 @@ function updateUI() {
 
 const MASK_STAR = '<span class="mask-symbol">★</span>';
 
-// 遮字顯示：英文（半形）單字一顆星，中文等依字數給星
 function maskAnswer(answer) {
-  return answer
-    .split(" ")
-    .map((part) => {
-      if (!part) return "";
-      if (/^[\x00-\xff]*$/.test(part)) return MASK_STAR;
-      return MASK_STAR.repeat(part.length);
-    })
+  return lrc
+    .maskStarCounts(answer)
+    .map((n) => MASK_STAR.repeat(n))
     .join(" ");
 }
 
@@ -656,38 +747,15 @@ function buildMenu() {
     const div = document.createElement("div");
     div.className = "menu__item";
     div.classList.toggle("active", idx === state.currentTrackIndex);
-    div.textContent = `Round ${idx + 1}`;
+    const flagged = state.roundIssues[idx + 1]?.length > 0;
+    div.textContent = `Round ${idx + 1}${flagged ? " ⚠️" : ""}`;
+    if (flagged) {
+      div.title = state.roundIssues[idx + 1].map((i) => i.message).join("\n");
+    }
     div.addEventListener("click", () => loadSong(idx));
     return div;
   });
   els.displays.menu.replaceChildren(...items);
-}
-
-// ==========================================
-// LRC 解析
-// ==========================================
-
-function parseLRC(lrc) {
-  if (!lrc) return [];
-  const lines = Array.isArray(lrc) ? lrc : lrc.split("\n");
-  return lines
-    .map((line) => {
-      const match = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/.exec(line);
-      if (!match) return null;
-      const time =
-        parseInt(match[1]) * 60 +
-        parseInt(match[2]) +
-        parseInt(match[3].padEnd(3, "0")) / 1000;
-      const rawText = line.replace(/\[.*?\]/, "").trim();
-      return {
-        time,
-        rawText,
-        hasMask: rawText.includes("*"),
-        isAnswered: false,
-      };
-    })
-    .filter((x) => x)
-    .sort((a, b) => a.time - b.time);
 }
 
 // ==========================================

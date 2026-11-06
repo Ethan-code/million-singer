@@ -533,3 +533,70 @@ body {
   color: var(--c-active);
   text-shadow: 0 0 40px rgba(68, 204, 255, 0.8);
 }
+
+/* --- 畫面內提示 --- */
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  z-index: 1000;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  cursor: pointer;
+  max-width: 420px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--c-panel);
+  border: 1px solid var(--c-border);
+  color: var(--c-text);
+  font-size: 0.95rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  animation: toastIn 0.2s ease-out;
+}
+.toast--warning {
+  border-color: var(--c-gold);
+}
+.toast--error {
+  border-color: var(--c-danger);
+  color: var(--c-danger);
+}
+@keyframes toastIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+}
+
+/* --- 題庫檢查結果 --- */
+.check-list {
+  width: 100%;
+  max-width: 600px;
+  max-height: 30vh;
+  overflow-y: auto;
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: #111;
+  font-size: 0.9rem;
+  list-style: none;
+}
+.check-list li {
+  padding: 3px 0;
+}
+.check-list .is-error {
+  color: var(--c-danger);
+}
+.check-list .is-warning {
+  color: var(--c-gold);
+}
+.check-list__hint {
+  color: #aaa;
+  margin-top: 6px;
+}

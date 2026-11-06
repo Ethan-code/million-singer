@@ -1,25 +1,24 @@
 {
   "name": "million-singer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "main.js",
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-builder build --dir",
+    "start": "electron .",
+    "test": "node --test",
+    "package": "electron-builder --dir",
     "build:win": "electron-builder --win --x64 -p never",
     "build:mac": "electron-builder --mac --x64 -p never",
-    "make": "electron-forge make",
+    "build:linux": "electron-builder --linux AppImage -p never",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
     "appId": "com.ethan.millionstar",
     "productName": "百萬大歌星",
-    "electronVersion": "37.0.0",
     "files": [
-      "**/*",
-      "!samples/**",
-      "!docs/**",
-      "!songs/**",
-      "!playlists/**"
+      "index.html",
+      "main.js",
+      "src/**/*",
+      "package.json"
     ],
     "extraResources": [
       {
@@ -38,32 +37,29 @@
       ],
       "icon": "build/icon.icns",
       "minimumSystemVersion": "11.0",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "hardenedRuntime": false
     },
     "dmg": {
       "sign": false
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game"
     }
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.8.3",
-    "@electron-forge/maker-deb": "^7.10.2",
-    "@electron-forge/maker-rpm": "^7.10.2",
-    "@electron-forge/maker-squirrel": "^7.10.2",
-    "@electron-forge/maker-zip": "^7.10.2",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
-    "@electron-forge/plugin-fuses": "^7.10.2",
-    "@electron/fuses": "^1.8.0",
     "electron": "^37.10.3",
     "electron-builder": "^26.4.0"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "electron-squirrel-startup": "^1.0.1"
+  "description": "百萬大歌星：歌詞遮字接唱遊戲",
+  "dependencies": {},
+  "allowScripts": {
+    "electron@37.10.3": true,
+    "electron-winstaller@5.4.0": true
   }
 }

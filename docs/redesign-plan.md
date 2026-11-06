@@ -38,18 +38,18 @@
 - [x] **停點準確度**：遮字停點改為「歌詞時間 − 0.1 秒」（`STOP_LEAD`），離停點 0.3 秒內改用單次計時器精準停下並對齊位置；`endTime` 同理。實測停點誤差由平均晚 31ms（最大 49ms）降到平均 3ms（最大 8ms）。
 - [x] **公布答案**：遮字停住時按 `A`（或控制列「📖 答案」）顯示正解後繼續播放；狀態列顯示「📖 ANSWER」、答案字用藍色，和答對的金色「✨ CORRECT!」區分。
 - [x] **狀態與畫面細節**：揭曉狀態停留 1.5 秒（`REVEAL_HOLD_MS`）；歌名面板每次揭曉滑入、5 秒後收起（`TITLE_SHOW_MS`）；揭曉期間也可以暫停。
-- [ ] **移除 `alert`**：改為畫面內不打斷的提示。
-- [ ] **防誤觸**：H 回首頁、← → 切歌加確認或改長按。
+- [x] **移除 `alert`**：改為畫面內提示（`src/ui/toast.js`）。
+- [x] **防誤觸**：歌曲進行中，H／R／← → 要 2 秒內按兩次（`src/ui/guard.js`）；READY 時照常一按生效。
 
 ### 讓既有流程可用
 
 - [x] **資料夾移到 app 外**：歌曲與題庫放在使用者可指定的資料夾（預設 `文件/MillionSinger`，首次建立時複製 `samples/` 範例），位置記在 userData 的 `config.json`；開始畫面可開啟／變更。
-- [ ] **載入題庫時基本檢查**：音檔存在、LRC 格式、遮字句落在 start–end 內；問題一次列出，不在播放途中才報錯。
+- [x] **載入題庫時基本檢查**：`src/shared/checker.js`，分錯誤／警告；有問題時列出，再按一次照樣開始，Round 選單標 ⚠️。
 
 ### 程式整理
 
 - [x] 把 `index.html` 拆成 HTML / CSS / JS（`src/styles.css`、`src/renderer.js`），整理重複邏輯。
-- [ ] 打包設定收斂：forge 與 electron-builder 擇一；修好 mac entitlements 設定；`build.electronVersion`（37.0.0）與實際安裝的 electron（37.10.3）不一致。
+- [x] 打包設定收斂：只留 electron-builder；Mac `hardenedRuntime: false` 並移除 entitlements；移除寫死的 `electronVersion`；Node 固定 24。
 
 ### 不在 v1.1 範圍
 

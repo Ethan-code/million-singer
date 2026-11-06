@@ -4,10 +4,6 @@ dist/
 out/
 .DS_Store
 
-# 忽略所有歌曲與題庫
-songs/*
-playlists/*
-
-# 允許 Demo 檔案被 Commit
-!songs/demo.mp3
-!playlists/default.json
+# 舊版放在 repo 內的歌曲與題庫（現在改放使用者資料夾，內附範例在 samples/）
+songs/
+playlists/

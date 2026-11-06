@@ -1,0 +1,525 @@
+/* --- 全局設定 --- */
+:root {
+  --c-gold: #ffcc00;
+  --c-bg: #000;
+  --c-panel: #222;
+  --c-text: #fff;
+  --c-border: #444;
+  --c-danger: #ff4444;
+  --c-success: #44ff44;
+  --c-active: #44ccff;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  font-family: system-ui, sans-serif;
+  position: fixed;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.hidden {
+  display: none !important;
+}
+
+/* --- 面板 --- */
+.panel {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.panel__title {
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  font-weight: 900;
+  color: var(--c-gold);
+  margin: 0 0 20px 0;
+}
+
+.btn {
+  padding: 12px 20px;
+  border-radius: 50px;
+  font-weight: bold;
+  cursor: pointer;
+  border: 1px solid var(--c-border);
+  background: var(--c-panel);
+  color: #aaa;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+.btn:hover {
+  background: #444;
+  color: #fff;
+  transform: translateY(-2px);
+}
+.btn--primary {
+  background: var(--c-gold);
+  color: black;
+  border: none;
+  box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
+}
+.btn--disabled {
+  opacity: 0.3;
+  pointer-events: none;
+  filter: grayscale(1);
+  cursor: not-allowed;
+}
+.btn--icon {
+  width: 48px;
+  padding: 0;
+}
+
+/* --- 題庫列表 --- */
+.playlist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 30px;
+  border: 1px solid #333;
+  padding: 10px;
+  border-radius: 8px;
+  background: #111;
+  scroll-behavior: smooth;
+}
+.playlist-item {
+  padding: 15px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #ccc;
+  transition: all 0.2s;
+  text-align: center;
+}
+.playlist-item:hover {
+  border-color: var(--c-gold);
+  color: white;
+  background: #222;
+}
+.playlist-item.selected {
+  background: var(--c-gold);
+  color: black;
+  font-weight: bold;
+  border-color: var(--c-gold);
+  box-shadow: 0 0 15px rgba(255, 204, 0, 0.3);
+}
+
+/* --- 遊戲畫面 --- */
+.game {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Header */
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  align-items: center;
+  padding: 0 40px;
+  z-index: 50;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+}
+.header__round {
+  font-size: 1.5rem;
+  color: var(--c-gold);
+  border: 2px solid var(--c-gold);
+  padding: 5px 20px;
+  border-radius: 50px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  text-align: center;
+}
+
+/* 狀態列 */
+.header__status {
+  font-size: 1.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-align: right;
+  background: transparent;
+  border: none;
+  transition: all 0.3s;
+  align-self: center;
+}
+.status--ready {
+  color: var(--c-success);
+  text-shadow: 0 0 15px var(--c-success);
+}
+.status--playing {
+  color: var(--c-active);
+  text-shadow: 0 0 15px var(--c-active);
+}
+.status--waiting {
+  color: var(--c-danger);
+  text-shadow: 0 0 15px var(--c-danger);
+  animation: pulseText 1s infinite;
+}
+.status--correct {
+  color: var(--c-gold);
+  text-shadow: 0 0 20px var(--c-gold);
+}
+.status--finished {
+  color: #888;
+  text-shadow: none;
+}
+@keyframes pulseText {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Visualizer */
+.visualizer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  opacity: 0.2;
+  transition: opacity 0.5s;
+}
+.visualizer.active {
+  opacity: 1;
+}
+.visualizer__bar {
+  width: 8px;
+  background: var(--c-gold);
+  border-radius: 2px;
+  box-shadow: 0 0 10px var(--c-gold);
+  height: 100%;
+}
+.visualizer.playing .visualizer__bar {
+  animation: bounce 1s infinite ease-in-out;
+}
+@keyframes bounce {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* 標題滑入區塊 */
+.title-panel {
+  position: fixed;
+  right: 0;
+  bottom: 150px;
+  background: rgba(0, 0, 0, 0.9);
+  border: 4px solid var(--c-gold);
+  border-right: none;
+  border-radius: 20px 0 0 20px;
+  padding: 15px 40px;
+  padding-right: 60px;
+  color: #fff;
+  box-shadow: -10px 10px 50px rgba(0, 0, 0, 0.8);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 300px;
+  transform: translateX(120%);
+  transition: none;
+}
+.title-panel.visible {
+  /* 顯示狀態：滑入時，要有動畫 */
+  transform: translateX(0);
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.title-label {
+  font-size: 0.9rem;
+  color: var(--c-gold);
+  font-weight: bold;
+  margin-bottom: 5px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.title-text {
+  font-size: 2rem;
+  font-weight: 900;
+  color: white;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+/* 全螢幕歌詞 */
+.lyrics-area {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 30;
+  overflow: visible;
+}
+.lyric-line {
+  font-size: 20vmin;
+  font-weight: 900;
+  line-height: 1;
+  color: white;
+  text-shadow: 0 0 60px rgba(255, 204, 0, 0.8);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0 20px;
+  text-align: center;
+  width: 100%;
+}
+@media (min-width: 1024px) {
+  .lyric-line {
+    font-size: 32vh;
+  }
+}
+
+.magic-word {
+  display: inline-block;
+  color: var(--c-gold);
+  text-shadow: 0 0 40px rgba(255, 204, 0, 0.8);
+  margin: 0 5px;
+  letter-spacing: 0px;
+  vertical-align: baseline;
+}
+.magic-word.is-revealing {
+  animation: popText 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes popText {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+#idle-round-text {
+  color: var(--c-gold);
+  white-space: nowrap;
+  font-size: min(40vh, 18vw);
+  font-weight: 900;
+  margin: 0;
+  line-height: 1;
+  text-shadow: 0 0 80px rgba(255, 204, 0, 0.6);
+  transform: skewX(-10deg);
+}
+
+/* ★★★ 實線紅框 + 強烈閃爍 ★★★ */
+
+/* 1. 警示邊框 (Solid Border) */
+.warning-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 25;
+  opacity: 0;
+  transition: opacity 0.1s;
+  /* 預設邊框 (透明) */
+  border: 20px solid transparent;
+}
+.warning-overlay.active {
+  opacity: 1;
+  /* 啟動超快閃爍動畫 */
+  animation: hardPanic 0.3s infinite alternate;
+}
+
+@keyframes hardPanic {
+  0% {
+    border-color: rgba(255, 0, 0, 1); /* 亮紅實線 */
+    background-color: rgba(255, 0, 0, 0.1); /* 微微泛紅背景 */
+    box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.8); /* 內發光 */
+  }
+  100% {
+    border-color: rgba(100, 0, 0, 0.5); /* 暗紅 */
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+/* 2. 警示 Icon */
+.warning-icon {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8vh;
+  color: #ff3333;
+  z-index: 40;
+  opacity: 0;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  text-shadow: 0 0 20px rgba(255, 0, 0, 1); /* 強烈光暈 */
+  pointer-events: none;
+}
+.warning-icon.active {
+  opacity: 1;
+  top: 25%;
+  /* Icon 也跟著狂閃 */
+  animation: iconPanic 0.3s infinite alternate;
+}
+
+@keyframes iconPanic {
+  0% {
+    transform: translateX(-50%) scale(1);
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  }
+  100% {
+    transform: translateX(-50%) scale(1.4);
+    text-shadow: 0 0 60px red;
+    color: #fff;
+  } /* 閃到變白 */
+}
+
+.controls {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 40;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.controls:hover,
+.controls:active {
+  opacity: 1;
+}
+.menu {
+  position: absolute;
+  top: 110px;
+  left: 40px;
+  background: rgba(34, 34, 34, 0.98);
+  border: 2px solid var(--c-gold);
+  border-radius: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+  z-index: 101;
+  display: none;
+  min-width: 250px;
+}
+.menu.visible {
+  display: block;
+}
+.menu__item {
+  padding: 15px 25px;
+  cursor: pointer;
+  border-bottom: 1px solid #444;
+  color: #ccc;
+  font-size: 1.2rem;
+}
+.menu__item:hover,
+.menu__item.active {
+  background: var(--c-gold);
+  color: black;
+  font-weight: bold;
+}
+.error-msg {
+  color: #f55;
+  margin-top: 10px;
+  font-weight: bold;
+}
+/* 強制特殊符號寬度與國字一致 */
+.mask-symbol {
+  display: inline-block;
+  width: 1em; /* 強制寬度等於當前字體大小 (一個字的寬) */
+  text-align: center; /* 讓星星在格子裡置中 */
+  font-family: "Courier New", Courier, monospace; /* 或是設為等寬字體 */
+  vertical-align: middle; /* 微調垂直對齊 */
+  transform: translateY(-5%); /* 視情況微調上下位置 */
+}
+
+/* --- 開始畫面 --- */
+.panel__hint {
+  color: #aaa;
+  margin-bottom: 10px;
+}
+.panel__actions {
+  display: flex;
+  gap: 10px;
+}
+.btn--large {
+  font-size: 1.5rem;
+}
+.btn--small {
+  padding: 4px 12px;
+  font-size: 0.8rem;
+}
+.btn--danger {
+  margin-left: 20px;
+  color: var(--c-danger);
+  border-color: var(--c-danger);
+}
+.playlist-list__msg {
+  color: #888;
+  padding: 10px;
+  text-align: center;
+}
+.playlist-list__msg--error {
+  color: #f55;
+}
+
+/* 資料夾位置 */
+.data-dir {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 30px;
+  max-width: 80vw;
+  color: #888;
+  font-size: 0.85rem;
+}
+.data-dir__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, monospace;
+}
+
+/* --- 遊戲畫面 --- */
+.idle-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}

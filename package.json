@@ -16,17 +16,15 @@
     "electronVersion": "37.0.0",
     "files": [
       "**/*",
-      "!songs/*",
-      "!playlists/*"
+      "!samples/**",
+      "!docs/**",
+      "!songs/**",
+      "!playlists/**"
     ],
     "extraResources": [
       {
-        "from": "songs/",
-        "to": "songs/"
-      },
-      {
-        "from": "playlists/",
-        "to": "playlists/"
+        "from": "samples/",
+        "to": "samples/"
       }
     ],
     "win": {

@@ -43,13 +43,13 @@
 
 ### 讓既有流程可用
 
-- [ ] **資料夾移到 app 外**：歌曲與題庫放在使用者可指定的資料夾（預設在「文件」底下），不再打包進 app。
+- [x] **資料夾移到 app 外**：歌曲與題庫放在使用者可指定的資料夾（預設 `文件/MillionSinger`，首次建立時複製 `samples/` 範例），位置記在 userData 的 `config.json`；開始畫面可開啟／變更。
 - [ ] **載入題庫時基本檢查**：音檔存在、LRC 格式、遮字句落在 start–end 內；問題一次列出，不在播放途中才報錯。
 
 ### 程式整理
 
-- [ ] 把 `index.html` 拆成 HTML / CSS / JS，整理重複邏輯。
-- [ ] 打包設定收斂：forge 與 electron-builder 擇一；修好 mac entitlements 設定。
+- [x] 把 `index.html` 拆成 HTML / CSS / JS（`src/styles.css`、`src/renderer.js`），整理重複邏輯。
+- [ ] 打包設定收斂：forge 與 electron-builder 擇一；修好 mac entitlements 設定；`build.electronVersion`（37.0.0）與實際安裝的 electron（37.10.3）不一致。
 
 ### 不在 v1.1 範圍
 

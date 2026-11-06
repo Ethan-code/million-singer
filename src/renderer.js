@@ -33,6 +33,7 @@ const state = {
   config: { startTime: 0, endTime: 0 },
   isTitleVisible: false,
   isPlaying: false,
+  revealType: null,
 };
 
 // 停點：遮字句在「歌詞時間 - STOP_LEAD」停下，抵銷聲音輸出緩衝與 LRC 誤差。
@@ -44,8 +45,19 @@ const PRECISE_WINDOW = 0.3; // 秒
 // 計時器觸發時若還差超過這個量（例如緩衝造成延遲），就重新排程。
 const STOP_TOLERANCE = 0.005; // 秒
 
+// 揭曉後狀態列停留時間、歌名面板顯示時間
+const REVEAL_HOLD_MS = 1500;
+const TITLE_SHOW_MS = 5000;
+
+const RevealType = {
+  CORRECT: "correct", // 答對
+  ANSWER: "answer", // 公布答案（答錯或沒人答）
+};
+
 let syncTimer = null;
 let stopTimer = null;
+let revealTimer = null;
+let titleTimer = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -81,6 +93,7 @@ const els = {
     next: $("btn-next"),
     toggle: $("btn-toggle"),
     reveal: $("btn-reveal"),
+    answer: $("btn-answer"),
     reset: $("btn-reset"),
     exit: $("btn-exit"),
   },
@@ -223,6 +236,7 @@ function isScreenVisible(screenName) {
 
 function goHome() {
   stopSync();
+  clearRoundTimers();
   els.audio.pause();
   switchScreen("start");
 }
@@ -235,7 +249,8 @@ function bindEvents() {
 
   els.btns.exit.addEventListener("click", goHome);
   els.btns.toggle.addEventListener("click", togglePlay);
-  els.btns.reveal.addEventListener("click", reveal);
+  els.btns.reveal.addEventListener("click", () => reveal(RevealType.CORRECT));
+  els.btns.answer.addEventListener("click", () => reveal(RevealType.ANSWER));
   els.btns.reset.addEventListener("click", () =>
     loadSong(state.currentTrackIndex)
   );
@@ -316,7 +331,10 @@ function handleGameKey(e) {
       break;
     case "Enter":
       e.preventDefault();
-      reveal();
+      reveal(RevealType.CORRECT);
+      break;
+    case "KeyA":
+      reveal(RevealType.ANSWER);
       break;
     case "KeyR":
       loadSong(state.currentTrackIndex);
@@ -358,7 +376,9 @@ function loadSong(index) {
   state.roundState = RoundState.IDLE;
   state.currentIndex = -1;
   state.isTitleVisible = false;
+  state.revealType = null;
   stopSync();
+  clearRoundTimers();
   els.audio.src = songUrl;
   els.audio.currentTime = state.config.startTime;
   els.audio.load();
@@ -373,10 +393,16 @@ function playAudio() {
   });
 }
 
+function isRunning() {
+  return (
+    state.roundState === RoundState.FLOW ||
+    state.roundState === RoundState.REVEALING
+  );
+}
+
 function togglePlay() {
   if (
     state.roundState === RoundState.LOCKED ||
-    state.roundState === RoundState.REVEALING ||
     state.roundState === RoundState.FINISHED
   )
     return;
@@ -426,7 +452,7 @@ function schedulePreciseStop(t) {
   const delayMs = ((next.time - t) * 1000) / (els.audio.playbackRate || 1);
   stopTimer = setTimeout(() => {
     stopTimer = null;
-    if (els.audio.paused || state.roundState !== RoundState.FLOW) return;
+    if (els.audio.paused || !isRunning()) return;
     const now = els.audio.currentTime;
     if (next.time - now > STOP_TOLERANCE) {
       schedulePreciseStop(now); // 還沒到（例如曾經卡頓），重新排程
@@ -489,19 +515,42 @@ function syncTick() {
   schedulePreciseStop(t);
 }
 
-function reveal() {
+function clearRoundTimers() {
+  clearTimeout(revealTimer);
+  clearTimeout(titleTimer);
+  revealTimer = null;
+  titleTimer = null;
+}
+
+// 遮字停住時揭曉：答對或公布答案，揭曉後繼續播放
+function reveal(type) {
   if (state.roundState !== RoundState.LOCKED) return;
-  state.lyricsData[state.currentIndex].isAnswered = true;
+  const line = state.lyricsData[state.currentIndex];
+  line.isAnswered = true;
+  line.revealType = type;
   state.roundState = RoundState.REVEALING;
-  state.isTitleVisible = true;
+  state.revealType = type;
+  showTitle();
   playAudio();
   updateUI();
-  setTimeout(() => {
+
+  clearTimeout(revealTimer);
+  revealTimer = setTimeout(() => {
     if (state.roundState === RoundState.REVEALING) {
       state.roundState = RoundState.FLOW;
       updateUI();
     }
-  }, 250);
+  }, REVEAL_HOLD_MS);
+}
+
+// 歌名面板滑入，一段時間後自動收起
+function showTitle() {
+  state.isTitleVisible = true;
+  clearTimeout(titleTimer);
+  titleTimer = setTimeout(() => {
+    state.isTitleVisible = false;
+    updateUI();
+  }, TITLE_SHOW_MS);
 }
 
 // ==========================================
@@ -513,8 +562,8 @@ const STATUS_VIEW = {
   [RoundState.FLOW]: { text: "▶ PLAYING", className: "status--playing" },
   [RoundState.LOCKED]: { text: "⏸ WAITING...", className: "status--waiting" },
   [RoundState.REVEALING]: {
-    text: "✨ CORRECT!",
-    className: "status--correct",
+    [RevealType.CORRECT]: { text: "✨ CORRECT!", className: "status--correct" },
+    [RevealType.ANSWER]: { text: "📖 ANSWER", className: "status--answer" },
   },
   [RoundState.FINISHED]: {
     text: "🏁 FINISHED",
@@ -534,7 +583,10 @@ function updateUI() {
 
   // Header
   els.displays.round.textContent = roundLabel;
-  const view = STATUS_VIEW[state.roundState];
+  const view =
+    state.roundState === RoundState.REVEALING
+      ? STATUS_VIEW[RoundState.REVEALING][state.revealType]
+      : STATUS_VIEW[state.roundState];
   els.displays.status.className = "header__status " + view.className;
   els.displays.status.textContent = view.text;
 
@@ -569,6 +621,7 @@ function updateUI() {
     isLocked || state.roundState === RoundState.FINISHED
   );
   els.btns.reveal.classList.toggle("btn--disabled", !isLocked);
+  els.btns.answer.classList.toggle("btn--disabled", !isLocked);
 }
 
 const MASK_STAR = '<span class="mask-symbol">★</span>';
@@ -591,9 +644,10 @@ function renderLyricLine(line) {
     if (!line.isAnswered) {
       return `<span class="magic-word">${maskAnswer(answer)}</span>`;
     }
-    const revealing =
-      state.roundState === RoundState.REVEALING ? "is-revealing" : "";
-    return `<span class="magic-word ${revealing}">${answer}</span>`;
+    const classes = ["magic-word"];
+    if (line.revealType === RevealType.ANSWER) classes.push("magic-word--answer");
+    if (state.roundState === RoundState.REVEALING) classes.push("is-revealing");
+    return `<span class="${classes.join(" ")}">${answer}</span>`;
   });
 }
 

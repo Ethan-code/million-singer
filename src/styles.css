@@ -186,6 +186,10 @@ body {
   color: var(--c-gold);
   text-shadow: 0 0 20px var(--c-gold);
 }
+.status--answer {
+  color: var(--c-active);
+  text-shadow: 0 0 20px var(--c-active);
+}
 .status--finished {
   color: #888;
   text-shadow: none;
@@ -522,4 +526,10 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* 公布答案：和答對（金色）區分 */
+.magic-word--answer {
+  color: var(--c-active);
+  text-shadow: 0 0 40px rgba(68, 204, 255, 0.8);
 }

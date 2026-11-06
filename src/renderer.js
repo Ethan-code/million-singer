@@ -35,7 +35,17 @@ const state = {
   isPlaying: false,
 };
 
+// 停點：遮字句在「歌詞時間 - STOP_LEAD」停下，抵銷聲音輸出緩衝與 LRC 誤差。
+// 寧可早停切掉前一句尾巴，也不要晚停漏出答案。
+const STOP_LEAD = 0.1; // 秒
+// 輪詢負責畫面更新；離停點剩 PRECISE_WINDOW 秒內改用單次計時器精準停下。
+const SYNC_INTERVAL = 50; // 毫秒
+const PRECISE_WINDOW = 0.3; // 秒
+// 計時器觸發時若還差超過這個量（例如緩衝造成延遲），就重新排程。
+const STOP_TOLERANCE = 0.005; // 秒
+
 let syncTimer = null;
+let stopTimer = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -341,7 +351,10 @@ function loadSong(index) {
     startTime: song.startTime || 0,
     endTime: song.endTime || 0,
   };
-  state.lyricsData = parseLRC(song.lrc);
+  state.lyricsData = parseLRC(song.lrc).map((line) => ({
+    ...line,
+    stopAt: Math.max(0, line.time - STOP_LEAD),
+  }));
   state.roundState = RoundState.IDLE;
   state.currentIndex = -1;
   state.isTitleVisible = false;
@@ -353,6 +366,13 @@ function loadSong(index) {
   updateUI();
 }
 
+// play() 若隨即被 pause()（例如一開播就碰到停點）會以 AbortError 結束，屬正常情況
+function playAudio() {
+  els.audio.play().catch((e) => {
+    if (e.name !== "AbortError") console.error(e);
+  });
+}
+
 function togglePlay() {
   if (
     state.roundState === RoundState.LOCKED ||
@@ -360,52 +380,113 @@ function togglePlay() {
     state.roundState === RoundState.FINISHED
   )
     return;
-  if (els.audio.paused) els.audio.play().catch(console.error);
+  if (els.audio.paused) playAudio();
   else els.audio.pause();
 }
 
 function startSync() {
   stopSync();
-  syncTimer = setInterval(syncTick, 50);
+  syncTimer = setInterval(syncTick, SYNC_INTERVAL);
+  syncTick(); // 從停點附近接續播放時，不等第一個間隔
 }
 
 function stopSync() {
   if (syncTimer) clearInterval(syncTimer);
+  if (stopTimer) clearTimeout(stopTimer);
   syncTimer = null;
+  stopTimer = null;
+}
+
+// 遮字句尚未答對前，以停點而非歌詞時間判斷是否已唱到
+function lineStartTime(line) {
+  return line.hasMask && !line.isAnswered ? line.stopAt : line.time;
+}
+
+// 下一個要停的點：未答的遮字停點或片段結束，取較早者
+function findNextStop(t) {
+  let next = null;
+  state.lyricsData.forEach((line, index) => {
+    if (!line.hasMask || line.isAnswered || line.stopAt <= t) return;
+    if (!next || line.stopAt < next.time) {
+      next = { type: "mask", time: line.stopAt, index };
+    }
+  });
+  const end = state.config.endTime;
+  if (end > t && (!next || end < next.time)) {
+    next = { type: "end", time: end };
+  }
+  return next;
+}
+
+function schedulePreciseStop(t) {
+  if (stopTimer) return;
+  const next = findNextStop(t);
+  if (!next || next.time - t > PRECISE_WINDOW) return;
+
+  const delayMs = ((next.time - t) * 1000) / (els.audio.playbackRate || 1);
+  stopTimer = setTimeout(() => {
+    stopTimer = null;
+    if (els.audio.paused || state.roundState !== RoundState.FLOW) return;
+    const now = els.audio.currentTime;
+    if (next.time - now > STOP_TOLERANCE) {
+      schedulePreciseStop(now); // 還沒到（例如曾經卡頓），重新排程
+      return;
+    }
+    if (next.type === "mask") lockAt(next.index);
+    else finishRound();
+  }, delayMs);
+}
+
+function lockAt(index) {
+  const line = state.lyricsData[index];
+  state.currentIndex = index;
+  state.roundState = RoundState.LOCKED;
+  const t = els.audio.currentTime;
+  els.audio.pause();
+  // 對齊到停點，揭曉後一律從同一位置接續。
+  // 只修正小誤差；從遮字句之後才開始播的情況不往回跳。
+  if (Math.abs(t - line.stopAt) < 0.5) els.audio.currentTime = line.stopAt;
+  updateUI();
+}
+
+function finishRound() {
+  els.audio.pause();
+  state.roundState = RoundState.FINISHED;
+  updateUI();
 }
 
 function syncTick() {
   if (state.roundState === RoundState.LOCKED || els.audio.paused) return;
   const t = els.audio.currentTime;
 
+  // 備援：計時器沒趕上（例如從停點之後開始播）時，照輪詢結果處理
   if (state.config.endTime > 0 && t >= state.config.endTime) {
-    els.audio.pause();
-    state.roundState = RoundState.FINISHED;
-    updateUI();
+    finishRound();
     return;
   }
 
   // 遮字句前 5 秒警示
-  const nextMask = state.lyricsData.find(
-    (line) => line.time > t && line.hasMask && !line.isAnswered
+  const nextMask = findNextStop(t);
+  setWarning(
+    nextMask !== null && nextMask.type === "mask" && nextMask.time - t <= 5
   );
-  setWarning(nextMask !== undefined && nextMask.time - t <= 5);
 
   // 找出目前應顯示的句子
   let activeIdx = -1;
-  for (let i = 0; i < state.lyricsData.length; i++) {
-    if (t >= state.lyricsData[i].time) activeIdx = i;
-    else break;
+  state.lyricsData.forEach((line, i) => {
+    if (t >= lineStartTime(line)) activeIdx = i;
+  });
+  if (activeIdx !== -1 && activeIdx !== state.currentIndex) {
+    const target = state.lyricsData[activeIdx];
+    if (target.hasMask && !target.isAnswered) {
+      lockAt(activeIdx);
+      return;
+    }
+    state.currentIndex = activeIdx;
+    updateUI();
   }
-  if (activeIdx === -1 || activeIdx === state.currentIndex) return;
 
-  state.currentIndex = activeIdx;
-  const target = state.lyricsData[activeIdx];
-  if (target.hasMask && !target.isAnswered) {
-    state.roundState = RoundState.LOCKED;
-    els.audio.pause();
-  }
-  updateUI();
+  schedulePreciseStop(t);
 }
 
 function reveal() {
@@ -413,7 +494,7 @@ function reveal() {
   state.lyricsData[state.currentIndex].isAnswered = true;
   state.roundState = RoundState.REVEALING;
   state.isTitleVisible = true;
-  els.audio.play();
+  playAudio();
   updateUI();
   setTimeout(() => {
     if (state.roundState === RoundState.REVEALING) {

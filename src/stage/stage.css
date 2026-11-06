@@ -1,17 +1,4 @@
-/* --- 全局設定 --- */
-:root {
-  --c-gold: #ffcc00;
-  --c-bg: #000;
-  --c-panel: #222;
-  --c-text: #fff;
-  --c-border: #444;
-  --c-danger: #ff4444;
-  --c-success: #44ff44;
-  --c-active: #44ccff;
-}
-* {
-  box-sizing: border-box;
-}
+
 body {
   margin: 0;
   background: var(--c-bg);
@@ -21,24 +8,6 @@ body {
   overflow: hidden;
   font-family: system-ui, sans-serif;
   position: fixed;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-.hidden {
-  display: none !important;
-}
-
-/* --- 面板 --- */
-.panel {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.95);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
 }
 .panel__title {
   font-size: clamp(2.5rem, 8vw, 4rem);
@@ -47,82 +16,106 @@ body {
   margin: 0 0 20px 0;
 }
 
-.btn {
-  padding: 12px 20px;
-  border-radius: 50px;
-  font-weight: bold;
-  cursor: pointer;
-  border: 1px solid var(--c-border);
-  background: var(--c-panel);
-  color: #aaa;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  white-space: nowrap;
-  font-size: 0.9rem;
-}
-.btn:hover {
-  background: #444;
-  color: #fff;
-  transform: translateY(-2px);
-}
-.btn--primary {
-  background: var(--c-gold);
-  color: black;
-  border: none;
-  box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
-}
-.btn--disabled {
-  opacity: 0.3;
-  pointer-events: none;
-  filter: grayscale(1);
-  cursor: not-allowed;
-}
-.btn--icon {
-  width: 48px;
-  padding: 0;
-}
-
-/* --- 題庫列表 --- */
-.playlist-list {
+/* 等待畫面 */
+.waiting {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: 300px;
-  overflow-y: auto;
-  width: 100%;
-  max-width: 400px;
-  margin-bottom: 30px;
-  border: 1px solid #333;
-  padding: 10px;
-  border-radius: 8px;
-  background: #111;
-  scroll-behavior: smooth;
-}
-.playlist-item {
-  padding: 15px;
-  border: 1px solid #444;
-  border-radius: 4px;
-  cursor: pointer;
-  color: #ccc;
-  transition: all 0.2s;
-  text-align: center;
-}
-.playlist-item:hover {
-  border-color: var(--c-gold);
-  color: white;
-  background: #222;
-}
-.playlist-item.selected {
-  background: var(--c-gold);
-  color: black;
-  font-weight: bold;
-  border-color: var(--c-gold);
-  box-shadow: 0 0 15px rgba(255, 204, 0, 0.3);
+  align-items: center;
+  justify-content: center;
+  color: var(--c-muted);
 }
 
+/* 歌詞區與影片：影片模式時影片在上、歌詞在下，歌詞不可蓋住影片 */
+.stage-main {
+  position: absolute;
+  inset: 100px 0 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2vh;
+}
+.stage-main .lyrics-area {
+  position: relative;
+  inset: auto;
+  flex: 1;
+  width: 100%;
+}
+.video-box {
+  flex: none;
+  height: 52vh;
+  aspect-ratio: 16 / 9;
+  max-width: 92vw;
+  background: #111;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.yt-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+.game.is-video .lyric-line {
+  font-size: 11vh;
+}
+.game.is-video #idle-round-text {
+  font-size: 12vh;
+}
+/* 影片模式：警示只閃邊框，不疊在影片上 */
+.game.is-video .warning-overlay.active {
+  animation: borderPanic 0.3s infinite alternate;
+}
+.game.is-video .warning-icon {
+  display: none;
+}
+@keyframes borderPanic {
+  0% {
+    border-color: rgba(255, 0, 0, 1);
+  }
+  100% {
+    border-color: rgba(100, 0, 0, 0.5);
+  }
+}
+
+/* 計分板 */
+.scoreboard {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  z-index: 35;
+}
+.scoreboard__team {
+  min-width: 120px;
+  padding: 6px 18px;
+  border: 2px solid var(--c-gold);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  text-align: center;
+}
+.scoreboard__name {
+  color: var(--c-gold);
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+.scoreboard__score {
+  font-size: 2.2rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.scoreboard__score.is-bump {
+  animation: popText 0.4s ease-out;
+}
+
+/* 舞台控制列：滑鼠移到底部才出現，給單螢幕、沒有控制台時用 */
+.game .controls {
+  z-index: 60;
+}
 /* --- 遊戲畫面 --- */
 .game {
   position: relative;
@@ -474,54 +467,7 @@ body {
   transform: translateY(-5%); /* 視情況微調上下位置 */
 }
 
-/* --- 開始畫面 --- */
-.panel__hint {
-  color: #aaa;
-  margin-bottom: 10px;
-}
-.panel__actions {
-  display: flex;
-  gap: 10px;
-}
-.btn--large {
-  font-size: 1.5rem;
-}
-.btn--small {
-  padding: 4px 12px;
-  font-size: 0.8rem;
-}
-.btn--danger {
-  margin-left: 20px;
-  color: var(--c-danger);
-  border-color: var(--c-danger);
-}
-.playlist-list__msg {
-  color: #888;
-  padding: 10px;
-  text-align: center;
-}
-.playlist-list__msg--error {
-  color: #f55;
-}
 
-/* 資料夾位置 */
-.data-dir {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 30px;
-  max-width: 80vw;
-  color: #888;
-  font-size: 0.85rem;
-}
-.data-dir__path {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: ui-monospace, monospace;
-}
-
-/* --- 遊戲畫面 --- */
 .idle-msg {
   display: flex;
   flex-direction: column;
@@ -532,71 +478,4 @@ body {
 .magic-word--answer {
   color: var(--c-active);
   text-shadow: 0 0 40px rgba(68, 204, 255, 0.8);
-}
-
-/* --- 畫面內提示 --- */
-.toast-stack {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-  z-index: 1000;
-  pointer-events: none;
-}
-.toast {
-  pointer-events: auto;
-  cursor: pointer;
-  max-width: 420px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: var(--c-panel);
-  border: 1px solid var(--c-border);
-  color: var(--c-text);
-  font-size: 0.95rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-  animation: toastIn 0.2s ease-out;
-}
-.toast--warning {
-  border-color: var(--c-gold);
-}
-.toast--error {
-  border-color: var(--c-danger);
-  color: var(--c-danger);
-}
-@keyframes toastIn {
-  from {
-    transform: translateY(10px);
-    opacity: 0;
-  }
-}
-
-/* --- 題庫檢查結果 --- */
-.check-list {
-  width: 100%;
-  max-width: 600px;
-  max-height: 30vh;
-  overflow-y: auto;
-  margin: 0 0 20px;
-  padding: 10px 14px;
-  border: 1px solid var(--c-border);
-  border-radius: 8px;
-  background: #111;
-  font-size: 0.9rem;
-  list-style: none;
-}
-.check-list li {
-  padding: 3px 0;
-}
-.check-list .is-error {
-  color: var(--c-danger);
-}
-.check-list .is-warning {
-  color: var(--c-gold);
-}
-.check-list__hint {
-  color: #aaa;
-  margin-top: 6px;
 }

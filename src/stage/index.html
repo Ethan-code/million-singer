@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <title>百萬大歌星</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: file:; frame-src http://127.0.0.1:*; media-src * file: blob: data:;"
+    />
+    <link rel="stylesheet" href="../ui/base.css" />
+    <link rel="stylesheet" href="stage.css" />
+  </head>
+  <body>
+    <div id="waiting" class="waiting">
+      <h1 class="panel__title">🎤 百萬大歌星</h1>
+      <p>等待控制台開始遊戲…</p>
+    </div>
+
+    <div id="game" class="game hidden">
+      <div id="warning-overlay" class="warning-overlay"></div>
+      <div id="warning-icon" class="warning-icon">⚠️</div>
+
+      <header class="header">
+        <div id="display-round" class="header__round">ROUND 1</div>
+        <div id="visualizer" class="visualizer">
+          <div class="visualizer__bar" style="height: 40%; animation-duration: 0.8s"></div>
+          <div class="visualizer__bar" style="height: 80%; animation-duration: 1.2s"></div>
+          <div class="visualizer__bar" style="height: 60%; animation-duration: 0.5s"></div>
+          <div class="visualizer__bar" style="height: 90%; animation-duration: 1s"></div>
+          <div class="visualizer__bar" style="height: 50%; animation-duration: 0.7s"></div>
+          <div class="visualizer__bar" style="height: 70%; animation-duration: 0.9s"></div>
+          <div class="visualizer__bar" style="height: 40%; animation-duration: 1.1s"></div>
+        </div>
+        <div id="display-status" class="header__status">Ready</div>
+      </header>
+
+      <aside id="menu-container" class="menu"></aside>
+
+      <div id="title-panel" class="title-panel">
+        <div class="title-label">Now Playing</div>
+        <div id="title-text" class="title-text"></div>
+      </div>
+
+      <main class="stage-main">
+        <div id="video-box" class="video-box hidden"></div>
+        <div class="lyrics-area">
+          <div id="idle-msg" class="idle-msg">
+            <p id="idle-round-text"></p>
+          </div>
+          <div id="lyric-container" class="hidden">
+            <div id="lyric-line" class="lyric-line"></div>
+          </div>
+        </div>
+      </main>
+
+      <div id="scoreboard" class="scoreboard hidden"></div>
+
+      <nav class="controls">
+        <button id="btn-prev" class="btn btn--icon">⏮</button>
+        <button id="btn-toggle" class="btn" style="min-width: 140px">▶ 開始 (Space)</button>
+        <button id="btn-reveal" class="btn btn--primary btn--disabled">✨ 答對 (Enter)</button>
+        <button id="btn-answer" class="btn btn--answer btn--disabled">📖 答案 (A)</button>
+        <button id="btn-reset" class="btn">🔄 重來 (R)</button>
+        <button id="btn-next" class="btn btn--icon">⏭</button>
+        <button id="btn-exit" class="btn btn--danger">✖ 結束 (H)</button>
+      </nav>
+    </div>
+
+    <script src="stage.js"></script>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 {
   "name": "million-singer",
-  "version": "1.1.0",
-  "main": "main.js",
+  "version": "2.0.0",
+  "main": "main/index.js",
   "scripts": {
     "start": "electron .",
     "test": "node --test",
@@ -15,8 +15,7 @@
     "appId": "com.ethan.millionstar",
     "productName": "百萬大歌星",
     "files": [
-      "index.html",
-      "main.js",
+      "main/**/*",
       "src/**/*",
       "package.json"
     ],
@@ -57,7 +56,10 @@
   "author": "",
   "license": "ISC",
   "description": "百萬大歌星：歌詞遮字接唱遊戲",
-  "dependencies": {},
+  "dependencies": {
+    "opencc-js": "^1.4.2",
+    "qrcode": "^1.5.4"
+  },
   "allowScripts": {
     "electron@37.10.3": true,
     "electron-winstaller@5.4.0": true

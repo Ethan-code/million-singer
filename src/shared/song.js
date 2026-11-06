@@ -7,6 +7,9 @@
 
 const YT_ID = /^[A-Za-z0-9_-]{11}$/;
 
+// 遮字句在歌詞時間前多少秒停下（抵銷聲音輸出緩衝與 LRC 誤差，寧早勿晚）
+const STOP_LEAD = 0.1;
+
 // 從各種 YouTube 網址取出影片 ID；不是 YouTube 回傳 null
 function parseYouTubeId(input) {
   const s = String(input || "").trim();
@@ -91,6 +94,7 @@ function needsNetwork(source) {
 }
 
 module.exports = {
+  STOP_LEAD,
   parseYouTubeId,
   normalizeSong,
   serializeSong,

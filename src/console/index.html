@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <title>百萬大歌星 控制台</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: file:; frame-src http://127.0.0.1:*; media-src * file: blob: data:; img-src 'self' data: https:; connect-src 'self' file:;"
+    />
+    <link rel="stylesheet" href="../ui/base.css" />
+    <link rel="stylesheet" href="console.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__brand">🎤 百萬大歌星 <span class="topbar__sub">控制台</span></div>
+      <div class="topbar__dir">
+        <span>📁</span>
+        <span id="data-dir-path" class="topbar__path"></span>
+        <button id="btn-open-dir" class="btn btn--small">開啟</button>
+        <button id="btn-change-dir" class="btn btn--small">變更</button>
+      </div>
+      <button id="btn-remote" class="btn btn--small">📱 手機遙控</button>
+    </header>
+
+    <!-- 首頁：題庫與歌曲 -->
+    <section id="view-home" class="view home">
+      <aside class="home__side">
+        <div class="side__head">
+          <h2>題庫</h2>
+          <button id="btn-new-playlist" class="btn btn--small">＋ 新增</button>
+          <button id="btn-rescan" class="btn btn--small" title="重新讀取">🔄</button>
+        </div>
+        <ul id="playlist-list" class="list"></ul>
+      </aside>
+
+      <main class="home__main">
+        <div id="home-empty" class="empty">← 選擇一個題庫，或新增題庫</div>
+        <div id="home-detail" class="hidden">
+          <div class="detail__head">
+            <h2 id="pl-name"></h2>
+            <span id="pl-summary" class="muted"></span>
+            <span class="spacer"></span>
+            <button id="btn-add-song" class="btn btn--small">＋ 新增歌曲</button>
+          </div>
+          <div class="table-wrap">
+            <table class="song-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>歌名</th>
+                  <th>音源</th>
+                  <th>遮字</th>
+                  <th>檢查</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="song-rows"></tbody>
+            </table>
+          </div>
+
+          <section class="setup">
+            <h3>開始遊戲</h3>
+            <label class="setup__row">
+              <span>隊伍</span>
+              <input id="teams" class="input" placeholder="用逗號分隔，例如：業務部, 研發部, 管理部（留空不計分）" />
+            </label>
+            <label class="setup__row">
+              <span>音源</span>
+              <select id="prefer" class="input">
+                <option value="local">本地檔案優先（找不到才用 YouTube）</option>
+                <option value="youtube">YouTube 優先</option>
+              </select>
+            </label>
+            <div class="setup__actions">
+              <span id="setup-note" class="muted"></span>
+              <button id="btn-start" class="btn btn--primary btn--large">▶ 開始遊戲</button>
+            </div>
+          </section>
+        </div>
+      </main>
+    </section>
+
+    <!-- 遊戲進行中：操作面板（看得到答案） -->
+    <section id="view-game" class="view game-panel hidden">
+      <div class="gp-head">
+        <h2 id="gp-playlist"></h2>
+        <span id="gp-status" class="pill"></span>
+        <span class="spacer"></span>
+        <button id="gp-fullscreen" class="btn btn--small">🖥 舞台全螢幕 (F)</button>
+        <button id="gp-scoreboard" class="btn btn--small">🏆 計分板 (S)</button>
+        <button id="gp-end" class="btn btn--small btn--danger">✖ 結束遊戲</button>
+      </div>
+      <div class="gp-body">
+        <aside class="gp-rounds">
+          <ul id="gp-round-list" class="list"></ul>
+        </aside>
+        <main class="gp-main">
+          <div class="gp-now">
+            <div>
+              <div id="gp-round" class="gp-now__round"></div>
+              <div id="gp-title" class="gp-now__title"></div>
+            </div>
+            <div class="gp-now__meta">
+              <span id="gp-source" class="badge"></span>
+              <span id="gp-masks" class="muted"></span>
+            </div>
+          </div>
+          <div class="progress">
+            <div id="gp-progress" class="progress__bar"></div>
+          </div>
+          <div id="gp-time" class="muted gp-time"></div>
+
+          <div id="gp-answer" class="gp-answer">
+            <div id="gp-answer-label" class="gp-answer__label"></div>
+            <div id="gp-answer-text" class="gp-answer__text"></div>
+            <div id="gp-answer-line" class="gp-answer__line"></div>
+          </div>
+
+          <div class="gp-controls">
+            <button id="gp-prev" class="btn btn--icon" title="上一首 (←)">⏮</button>
+            <button id="gp-toggle" class="btn btn--large">▶ 開始 (Space)</button>
+            <button id="gp-correct" class="btn btn--primary btn--large">✨ 答對 (Enter)</button>
+            <button id="gp-reveal" class="btn btn--answer btn--large">📖 公布答案 (A)</button>
+            <button id="gp-reset" class="btn" title="重來 (R)">🔄 重來</button>
+            <button id="gp-next" class="btn btn--icon" title="下一首 (→)">⏭</button>
+          </div>
+
+          <div id="gp-teams" class="gp-teams"></div>
+          <p class="muted hint">
+            快捷鍵：Space 播放／暫停・Enter 答對・A 公布答案・R 重來・← → 切歌・S 計分板・F 舞台全螢幕。
+            歌曲進行中切歌、重來、結束要按兩次。
+          </p>
+        </main>
+      </div>
+    </section>
+
+    <!-- 歌曲編輯器（editor.js 建立內容） -->
+    <section id="view-editor" class="view editor hidden"></section>
+
+    <script src="console.js"></script>
+  </body>
+</html>

@@ -1,0 +1,81 @@
+<!doctype html>
+<!--
+  YouTube 中介頁：由 main/local-server.js 以 http://127.0.0.1 提供
+  （YouTube 內嵌不接受 file:// 來源）。上層頁面用 postMessage 控制：
+    收到 { cmd: "play" | "pause" | "seek" | "mute" | "unmute" | "rate", value }
+    送出 { type: "ready" | "tick" | "error", time, state, duration, rate, code }
+-->
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html, body, #player { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <div id="player"></div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const videoId = params.get("id");
+      const startAt = parseFloat(params.get("start") || "0");
+      let player = null;
+      let ticker = null;
+
+      function post(msg) {
+        parent.postMessage({ source: "yt-bridge", ...msg }, "*");
+      }
+
+      function snapshot(type) {
+        if (!player || !player.getCurrentTime) return;
+        post({
+          type,
+          time: player.getCurrentTime(),
+          state: player.getPlayerState(),
+          duration: player.getDuration(),
+          rate: player.getPlaybackRate(),
+        });
+      }
+
+      function onYouTubeIframeAPIReady() {
+        player = new YT.Player("player", {
+          videoId,
+          width: "100%",
+          height: "100%",
+          playerVars: {
+            controls: 0,
+            disablekb: 1,
+            rel: 0,
+            playsinline: 1,
+            iv_load_policy: 3,
+            fs: 0,
+            start: Math.floor(startAt),
+          },
+          events: {
+            onReady: () => {
+              // 讓第一個畫面停在開始時間，但不播放
+              if (startAt > 0) player.seekTo(startAt, true);
+              player.pauseVideo();
+              snapshot("ready");
+              ticker = setInterval(() => snapshot("tick"), 50);
+            },
+            onStateChange: () => snapshot("tick"),
+            onError: (e) => post({ type: "error", code: e.data }),
+          },
+        });
+      }
+
+      window.addEventListener("message", (e) => {
+        if (e.source !== parent || !player || !player.playVideo) return;
+        const { cmd, value } = e.data || {};
+        if (cmd === "play") player.playVideo();
+        else if (cmd === "pause") player.pauseVideo();
+        else if (cmd === "seek") player.seekTo(value, true);
+        else if (cmd === "mute") player.mute();
+        else if (cmd === "unmute") player.unMute();
+        else if (cmd === "rate") player.setPlaybackRate(value);
+        snapshot("tick");
+      });
+    </script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+  </body>
+</html>

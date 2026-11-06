@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <title>百萬大歌星 遙控</title>
+    <style>
+      :root {
+        --gold: #ffcc00;
+        --red: #ff4444;
+        --blue: #44ccff;
+        --muted: #999;
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        margin: 0;
+        background: #000;
+        color: #fff;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+        user-select: none;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .round {
+        color: var(--gold);
+        font-weight: bold;
+      }
+      .status {
+        padding: 3px 10px;
+        border-radius: 14px;
+        background: #222;
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+      .title {
+        font-size: 1.3rem;
+        font-weight: 900;
+        margin: 4px 0 10px;
+      }
+      .progress {
+        height: 5px;
+        background: #222;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .progress div {
+        height: 100%;
+        width: 0;
+        background: var(--gold);
+      }
+      .answer {
+        margin: 14px 0;
+        border: 2px solid #333;
+        border-radius: 14px;
+        padding: 14px;
+        background: #111;
+      }
+      .answer.locked {
+        border-color: var(--red);
+        background: #200c0c;
+      }
+      .answer.soon {
+        border-color: var(--gold);
+      }
+      .answer__label {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .answer__text {
+        font-size: 2.4rem;
+        font-weight: 900;
+        color: var(--gold);
+        margin: 6px 0;
+        word-break: break-all;
+      }
+      .answer__line {
+        color: #ddd;
+      }
+      .answer__line mark {
+        background: none;
+        color: var(--gold);
+        text-decoration: underline;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      button {
+        font: inherit;
+        font-weight: bold;
+        padding: 16px 10px;
+        border-radius: 14px;
+        border: 1px solid #444;
+        background: #222;
+        color: #fff;
+      }
+      button:active {
+        transform: scale(0.97);
+      }
+      button:disabled {
+        opacity: 0.3;
+      }
+      .primary {
+        background: var(--gold);
+        color: #000;
+        border-color: var(--gold);
+      }
+      .blue {
+        color: var(--blue);
+        border-color: var(--blue);
+      }
+      .armed {
+        background: var(--red);
+        border-color: var(--red);
+      }
+      .wide {
+        grid-column: span 2;
+        font-size: 1.2rem;
+      }
+      .small {
+        padding: 10px 6px;
+        font-size: 0.9rem;
+      }
+      h3 {
+        margin: 18px 0 8px;
+        font-size: 0.95rem;
+        color: var(--gold);
+      }
+      .team {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .team__score {
+        font-size: 1.5rem;
+        font-weight: 900;
+        min-width: 44px;
+        text-align: right;
+      }
+      .waiting {
+        text-align: center;
+        margin-top: 30vh;
+        color: var(--muted);
+      }
+      .conn {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: var(--red);
+        text-align: center;
+        font-size: 0.85rem;
+        padding: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="conn" class="conn" hidden>連線中斷，重新連線中…</div>
+    <div id="waiting" class="waiting">
+      <h2>🎤 百萬大歌星</h2>
+      <p>等待控制台開始遊戲…</p>
+    </div>
+    <main id="main" hidden>
+      <div class="top">
+        <span id="round" class="round"></span>
+        <span id="status" class="status"></span>
+      </div>
+      <div id="title" class="title"></div>
+      <div class="progress"><div id="progress"></div></div>
+
+      <div id="answer" class="answer">
+        <div id="answer-label" class="answer__label"></div>
+        <div id="answer-text" class="answer__text"></div>
+        <div id="answer-line" class="answer__line"></div>
+      </div>
+
+      <div class="grid">
+        <button id="b-correct" class="primary wide">✨ 答對</button>
+        <button id="b-answer" class="blue">📖 公布答案</button>
+        <button id="b-toggle">▶ 播放</button>
+        <button id="b-prev" class="small">⏮ 上一首</button>
+        <button id="b-next" class="small">下一首 ⏭</button>
+      </div>
+
+      <div id="teams-wrap" hidden>
+        <h3>計分</h3>
+        <div id="teams"></div>
+      </div>
+    </main>
+
+    <script>
+      const base = location.pathname.replace(/\/$/, "");
+      const $ = (id) => document.getElementById(id);
+      let game = null;
+
+      function send(cmd) {
+        fetch(base + "/command", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(cmd),
+        }).catch(() => {});
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+
+      // 防誤觸：歌曲進行中切歌要點兩次
+      let armed = null;
+      function guarded(btn, cmd) {
+        const inProgress = game && game.roundState !== "IDLE";
+        if (!inProgress || armed === btn) {
+          disarm();
+          send(cmd);
+          return;
+        }
+        disarm();
+        armed = btn;
+        btn.dataset.label = btn.textContent;
+        btn.textContent = "再點一次確認";
+        btn.classList.add("armed");
+        armed.timer = setTimeout(disarm, 2000);
+      }
+      function disarm() {
+        if (!armed) return;
+        clearTimeout(armed.timer);
+        armed.textContent = armed.dataset.label;
+        armed.classList.remove("armed");
+        armed = null;
+      }
+
+      const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      const fmt = (t) => {
+        t = Math.max(0, t || 0);
+        return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+      };
+      const STATUS = { IDLE: "🟢 準備", FLOW: "▶ 播放中", LOCKED: "⏸ 等待作答", REVEALING: "✨ 揭曉", FINISHED: "🏁 結束" };
+
+      function render(g) {
+        game = g;
+        const active = g && g.active;
+        $("waiting").hidden = !!active;
+        $("main").hidden = !active;
+        if (!active) return;
+
+        $("round").textContent = `Round ${g.roundIndex + 1} / ${g.roundCount}`;
+        $("status").textContent = g.roundState === "REVEALING" && g.revealType === "answer" ? "📖 公布答案" : STATUS[g.roundState];
+        $("title").textContent = g.title + (g.artist ? ` — ${g.artist}` : "");
+        const end = g.endTime > 0 ? g.endTime : g.duration;
+        $("progress").style.width = `${Math.min(100, Math.max(0, ((g.time - g.startTime) / Math.max(0.001, end - g.startTime)) * 100))}%`;
+
+        const f = g.focusMask;
+        $("answer").classList.toggle("locked", g.roundState === "LOCKED");
+        $("answer").classList.toggle("soon", !!f && !f.isCurrent && f.inSeconds <= 5 && g.isPlaying);
+        if (f) {
+          $("answer-label").textContent = f.isCurrent ? "⏸ 停住了！答案是" : `下一個遮字（${f.inSeconds.toFixed(1)} 秒後）`;
+          $("answer-text").textContent = f.answers.join("　");
+          $("answer-line").innerHTML = esc(f.text).replace(/\*(.*?)\*/g, "<mark>$1</mark>");
+        } else {
+          $("answer-label").textContent = g.maskCount ? "這首的遮字都答完了" : "這首沒有遮字";
+          $("answer-text").textContent = "—";
+          $("answer-line").textContent = `${fmt(g.time - g.startTime)} / ${fmt(end - g.startTime)}`;
+        }
+
+        const locked = g.roundState === "LOCKED";
+        $("b-correct").disabled = !locked;
+        $("b-answer").disabled = !locked;
+        $("b-toggle").disabled = locked || g.roundState === "FINISHED" || !g.sourceType;
+        $("b-toggle").textContent = g.roundState === "IDLE" ? "▶ 開始" : g.isPlaying ? "⏸ 暫停" : "⏯ 播放";
+        $("b-prev").disabled = g.roundIndex === 0;
+        $("b-next").disabled = g.roundIndex >= g.roundCount - 1;
+
+        $("teams-wrap").hidden = !g.teams.length;
+        const key = JSON.stringify(g.teams);
+        if ($("teams").dataset.key !== key) {
+          $("teams").dataset.key = key;
+          $("teams").replaceChildren(
+            ...g.teams.map((t, i) => {
+              const row = document.createElement("div");
+              row.className = "team";
+              row.innerHTML = `<span>${esc(t.name)}</span><span class="team__score">${t.score}</span>`;
+              for (const d of [-1, 1, 2]) {
+                const b = document.createElement("button");
+                b.className = "small" + (d > 0 ? "" : " blue");
+                b.textContent = d > 0 ? `+${d}` : String(d);
+                b.onclick = () => send({ cmd: "score", team: i, delta: d });
+                row.appendChild(b);
+              }
+              return row;
+            })
+          );
+        }
+      }
+
+      $("b-correct").onclick = () => send({ cmd: "correct" });
+      $("b-answer").onclick = () => send({ cmd: "answer" });
+      $("b-toggle").onclick = () => send({ cmd: "toggle" });
+      $("b-prev").onclick = (e) => guarded(e.currentTarget, { cmd: "prev" });
+      $("b-next").onclick = (e) => guarded(e.currentTarget, { cmd: "next" });
+
+      function connect() {
+        const es = new EventSource(base + "/events");
+        es.onopen = () => ($("conn").hidden = true);
+        es.onmessage = (e) => render(JSON.parse(e.data));
+        es.onerror = () => {
+          $("conn").hidden = false;
+        };
+      }
+      connect();
+    </script>
+  </body>
+</html>

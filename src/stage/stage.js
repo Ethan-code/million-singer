@@ -145,8 +145,10 @@ function splitUnits(text) {
   return units;
 }
 
+// 連續的遮字句算同一題：只在第一句前停，整組一起顯示、一起揭曉、分數合計。
+// group 是同組各句的索引；head 是第一句（停點、提示數、判定都記在它身上）。
 function buildLyrics(song) {
-  return lrc.parseLRC(song.lrc).lines.map((line) => {
+  const lines = lrc.parseLRC(song.lrc).lines.map((line) => {
     const units = splitUnits(line.text);
     const maskUnits = units.filter((u) => u.masked).length;
     return {
@@ -159,12 +161,32 @@ function buildLyrics(song) {
       isAnswered: false,
       revealType: null,
       stopAt: Math.max(0, line.time - STOP_LEAD),
+      head: null,
+      group: null,
     };
   });
+  lines.forEach((line, i) => {
+    if (!line.hasMask) return;
+    const prev = lines[i - 1];
+    if (prev?.hasMask) {
+      line.head = prev.head;
+      prev.head.group.push(i);
+    } else {
+      line.head = line;
+      line.group = [i];
+    }
+  });
+  return lines;
 }
 
+const isHead = (line) => line.hasMask && line.head === line;
+const groupLines = (head) => head.group.map((i) => state.lyricsData[i]);
+const groupUnits = (head) => groupLines(head).reduce((n, l) => n + l.maskUnits, 0);
+
+// 這題還值多少分（line 可以是組內任一句）
 function linePoints(line) {
-  return Math.max(0, line.maskUnits - line.hinted) * POINTS_PER_CHAR;
+  const head = line.head || line;
+  return Math.max(0, groupUnits(head) - head.hinted) * POINTS_PER_CHAR;
 }
 
 // ==========================================
@@ -343,7 +365,7 @@ function lineStartTime(line) {
 function findNextStop(t) {
   let next = null;
   state.lyricsData.forEach((line, index) => {
-    if (!line.hasMask || line.isAnswered || line.stopAt <= t) return;
+    if (!isHead(line) || line.isAnswered || line.stopAt <= t) return;
     if (!next || line.stopAt < next.time) next = { type: "mask", time: line.stopAt, index };
   });
   const end = state.config.endTime;
@@ -410,7 +432,7 @@ function syncTick() {
   });
   if (activeIdx !== -1 && activeIdx !== state.currentIndex) {
     const target = state.lyricsData[activeIdx];
-    if (target.hasMask && !target.isAnswered) {
+    if (isHead(target) && !target.isAnswered) {
       lockAt(activeIdx);
       return;
     }
@@ -433,8 +455,10 @@ function reveal(type) {
   if (state.roundState !== RoundState.LOCKED) return;
   const line = state.lyricsData[state.currentIndex];
   const points = linePoints(line);
-  line.isAnswered = true;
-  line.revealType = type;
+  for (const l of groupLines(line.head)) {
+    l.isAnswered = true;
+    l.revealType = type;
+  }
   state.roundState = RoundState.REVEALING;
   state.revealType = type;
 
@@ -483,8 +507,8 @@ function award(teamIndex, points) {
 // 提示：翻開下一張牌，這張不計分；至少留一張
 function hint() {
   if (state.roundState !== RoundState.LOCKED) return;
-  const line = state.lyricsData[state.currentIndex];
-  if (line.hinted >= line.maskUnits - 1) {
+  const line = state.lyricsData[state.currentIndex].head;
+  if (line.hinted >= groupUnits(line) - 1) {
     toast("只剩最後一個字，不能再提示", "warning", { key: "hint" });
     return;
   }
@@ -810,17 +834,19 @@ const escapeHtml = (s) =>
 
 // ---------- 歌詞（一次一句，置中大字） ----------
 // 歌詞 DOM 只在換句時重建；揭曉時只翻牌，動畫才不會被打斷。
-let shownLine = -2;
+let shownLine = "";
 
 function resetLyric() {
-  shownLine = -2;
+  shownLine = "";
   els.lyricLine.replaceChildren();
 }
 
-function buildLineNode(line) {
+// tileOffset：這句之前同組已有幾張牌（提示是整組依序翻）
+function buildLineNode(line, tileOffset = 0) {
   const node = document.createElement("div");
   node.className = "ktv-text";
-  let tileIndex = 0;
+  const hintedCount = line.head ? line.head.hinted : 0;
+  let tileIndex = tileOffset;
   for (const u of line.units) {
     if (u.space) {
       node.appendChild(document.createTextNode(" "));
@@ -833,7 +859,7 @@ function buildLineNode(line) {
       node.appendChild(span);
       continue;
     }
-    const hinted = !line.isAnswered && tileIndex < line.hinted;
+    const hinted = !line.isAnswered && tileIndex < hintedCount;
     const flipped = line.isAnswered || hinted;
     const tile = document.createElement("span");
     tile.className =
@@ -852,19 +878,46 @@ function buildLineNode(line) {
   return node;
 }
 
+// 一般句子一次一句；連續遮字句整組一起顯示（上下排），唱到哪句哪句亮
+function displayKey(cur) {
+  const line = state.lyricsData[cur];
+  return line?.head ? `g${line.head.group[0]}` : String(cur);
+}
+
 function renderLyric() {
   const cur = state.currentIndex;
   const line = state.lyricsData[cur];
-  if (cur !== shownLine) {
-    shownLine = cur;
-    els.lyricLine.replaceChildren(...(line ? [buildLineNode(line)] : []));
+  const key = line ? displayKey(cur) : "";
+  if (key !== shownLine) {
+    shownLine = key;
+    let nodes = [];
+    if (line?.head) {
+      let offset = 0;
+      nodes = groupLines(line.head).map((l) => {
+        const node = buildLineNode(l, offset);
+        node.dataset.index = String(state.lyricsData.indexOf(l));
+        offset += l.maskUnits;
+        return node;
+      });
+    } else if (line) {
+      nodes = [buildLineNode(line)];
+    }
+    els.lyricLine.replaceChildren(...nodes);
+    els.lyricLine.classList.toggle("is-group", nodes.length > 1);
     if (line) restartAnimation(els.lyricLine);
   }
   els.lyricLine.classList.toggle("is-locked", state.roundState === RoundState.LOCKED);
+  // 組內：已唱到的句子亮、還沒唱到的暗（停住時全亮）
+  const singing = state.roundState === RoundState.FLOW || state.roundState === RoundState.REVEALING;
+  for (const node of els.lyricLine.children) {
+    const idx = Number(node.dataset.index);
+    node.classList.toggle("is-ahead", singing && node.dataset.index !== undefined && idx > cur);
+  }
 }
 
 function currentTiles() {
-  return state.currentIndex >= 0 && shownLine === state.currentIndex ? [...els.lyricLine.querySelectorAll(".tile")] : [];
+  const line = state.lyricsData[state.currentIndex];
+  return line && shownLine === displayKey(state.currentIndex) ? [...els.lyricLine.querySelectorAll(".tile")] : [];
 }
 
 function flipTiles(type) {
@@ -985,12 +1038,12 @@ function buildMenu() {
 
 function focusMask(t) {
   if (state.roundState === RoundState.LOCKED) {
-    const line = state.lyricsData[state.currentIndex];
-    return line ? { line, index: state.currentIndex } : null;
+    const line = state.lyricsData[state.currentIndex]?.head;
+    return line ? { line, index: state.lyricsData.indexOf(line) } : null;
   }
   let found = null;
   state.lyricsData.forEach((line, index) => {
-    if (found || !line.hasMask || line.isAnswered || line.stopAt < t - 0.01) return;
+    if (found || !isHead(line) || line.isAnswered || line.stopAt < t - 0.01) return;
     found = { line, index };
   });
   return found;
@@ -1000,7 +1053,7 @@ function snapshot() {
   const t = player ? player.currentTime : state.config.startTime;
   const current = state.lyricsData[state.currentIndex];
   const focus = focusMask(t);
-  const masks = state.lyricsData.filter((l) => l.hasMask);
+  const masks = state.lyricsData.filter(isHead);
   return {
     active: state.active,
     playlistName: state.playlistName,
@@ -1025,14 +1078,14 @@ function snapshot() {
     currentLine: current ? { text: current.rawText, hasMask: current.hasMask, isAnswered: current.isAnswered } : null,
     focusMask: focus
       ? {
-          text: focus.line.rawText,
-          answers: lrc.getMaskAnswers(focus.line.rawText),
+          text: groupLines(focus.line).map((l) => l.rawText).join(" / "),
+          answers: groupLines(focus.line).flatMap((l) => lrc.getMaskAnswers(l.rawText)),
           stopAt: focus.line.stopAt,
           inSeconds: Math.max(0, focus.line.stopAt - t),
           isCurrent: state.roundState === RoundState.LOCKED,
           points: linePoints(focus.line),
           hinted: focus.line.hinted,
-          units: focus.line.maskUnits,
+          units: groupUnits(focus.line),
         }
       : null,
     maskCount: masks.length,

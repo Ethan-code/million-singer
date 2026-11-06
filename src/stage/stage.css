@@ -287,6 +287,21 @@ body {
 .ktv-text {
   display: inline-block;
 }
+/* 連續遮字句整組顯示：上下排，字小一點才放得下 */
+.lyric-line.is-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2vh;
+  font-size: 14vh;
+}
+.lyric-line .ktv-text.is-ahead {
+  opacity: 0.45;
+  transition: opacity 0.3s;
+}
+.game.is-video .lyric-line.is-group {
+  font-size: 7vh;
+}
 .ktv-text[data-size="m"] {
   font-size: 0.75em;
 }

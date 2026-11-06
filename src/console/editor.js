@@ -717,8 +717,8 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
 
   function insertLine() {
     const at = ed.selected >= 0 ? ed.selected + 1 : draft.lines.length;
-    const t = ed.player ? round2(ed.player.currentTime) : null;
-    draft.lines.splice(at, 0, { time: t, text: "" });
+    // 新行不帶時間：帶入播放位置容易是錯的時間，重新載入時排序會把行打亂
+    draft.lines.splice(at, 0, { time: null, text: "" });
     markDirty();
     renderLines();
     select(at);

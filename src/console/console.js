@@ -375,6 +375,7 @@ function renderGame(g) {
   $("gp-reveal").disabled = !locked;
   $("gp-hint").disabled = !locked || !f || f.hinted >= f.units - 1;
   $("gp-replay").disabled = !locked;
+  $("gp-skip").disabled = locked || g.roundState === "FINISHED" || !g.sourceType;
   $("gp-mute").textContent = g.sfxMuted ? "🔇 音效 (M)" : "🔊 音效 (M)";
   $("gp-results").textContent = g.resultsVisible ? "✖ 關閉結果 (P)" : "🏆 公布結果 (P)";
   $("gp-prev").disabled = g.roundIndex === 0;
@@ -478,6 +479,9 @@ function handleGameKey(e) {
       break;
     case "KeyB":
       sendCommand({ cmd: "replay" });
+      break;
+    case "KeyN":
+      sendCommand({ cmd: "skip" });
       break;
     case "KeyP":
       sendCommand({ cmd: "results" });
@@ -601,6 +605,7 @@ function bindEvents() {
   $("gp-scoreboard").addEventListener("click", () => sendCommand({ cmd: "scoreboard" }));
   $("gp-hint").addEventListener("click", () => sendCommand({ cmd: "hint" }));
   $("gp-replay").addEventListener("click", () => sendCommand({ cmd: "replay" }));
+  $("gp-skip").addEventListener("click", () => sendCommand({ cmd: "skip" }));
   $("gp-results").addEventListener("click", () => sendCommand({ cmd: "results" }));
   $("gp-mute").addEventListener("click", () => sendCommand({ cmd: "mute" }));
   $("gp-fullscreen").addEventListener("click", () => ipcRenderer.send("stage:fullscreen"));

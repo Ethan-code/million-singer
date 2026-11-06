@@ -208,6 +208,7 @@
         <button id="b-hint">💡 提示</button>
         <button id="b-replay">⏪ 重聽</button>
         <button id="b-toggle">▶ 播放</button>
+        <button id="b-skip" class="wide">⏩ 下一題</button>
         <button id="b-prev" class="small">⏮ 上一首</button>
         <button id="b-next" class="small">下一首 ⏭</button>
       </div>
@@ -297,6 +298,7 @@
         $("b-answer").disabled = !locked;
         $("b-hint").disabled = !locked || !f || f.hinted >= f.units - 1;
         $("b-replay").disabled = !locked;
+        $("b-skip").disabled = locked || g.roundState === "FINISHED" || !g.sourceType;
         $("b-toggle").disabled = locked || g.roundState === "FINISHED" || !g.sourceType;
         $("b-toggle").textContent = g.roundState === "IDLE" ? "▶ 開始" : g.isPlaying ? "⏸ 暫停" : "⏯ 播放";
         $("b-prev").disabled = g.roundIndex === 0;
@@ -330,6 +332,7 @@
       $("b-answer").onclick = () => send({ cmd: "answer" });
       $("b-hint").onclick = () => send({ cmd: "hint" });
       $("b-replay").onclick = () => send({ cmd: "replay" });
+      $("b-skip").onclick = () => send({ cmd: "skip" });
       $("b-toggle").onclick = () => send({ cmd: "toggle" });
       $("b-prev").onclick = (e) => guarded(e.currentTarget, { cmd: "prev" });
       $("b-next").onclick = (e) => guarded(e.currentTarget, { cmd: "next" });

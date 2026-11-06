@@ -116,6 +116,7 @@ const els = {
     answer: $("btn-answer"),
     hint: $("btn-hint"),
     replay: $("btn-replay"),
+    skip: $("btn-skip"),
     reset: $("btn-reset"),
     exit: $("btn-exit"),
   },
@@ -533,6 +534,31 @@ function replay() {
   updateUI();
 }
 
+// 跳到下一題：直接跳到下一個未答遮字點的前一句開頭（跟重聽一樣留一句上下文），不用等前面唱完
+function skipToNext() {
+  if (!player || state.roundState === RoundState.LOCKED || state.roundState === RoundState.FINISHED) return;
+  const t = player.currentTime;
+  const next = findNextStop(t);
+  if (next?.type !== "mask") {
+    toast("後面沒有題目了", "info", { key: "skip", duration: 1500 });
+    return;
+  }
+  const prev = state.lyricsData[next.index - 1];
+  const from = prev ? Math.max(state.config.startTime, prev.time - 0.3) : state.config.startTime;
+  if (from <= t) {
+    // 已經在前一句裡，再跳反而會往回
+    if (player.paused) playAudio();
+    return;
+  }
+  if (stopTimer) clearTimeout(stopTimer);
+  stopTimer = null;
+  setCountdown(0);
+  state.currentIndex = prev ? next.index - 1 : -1;
+  player.currentTime = from;
+  playAudio();
+  updateUI();
+}
+
 function showTitle() {
   state.isTitleVisible = true;
   clearTimeout(titleTimer);
@@ -600,6 +626,9 @@ function runCommand(cmd) {
       break;
     case "replay":
       replay();
+      break;
+    case "skip":
+      skipToNext();
       break;
     case "reset":
       loadSong(state.currentTrackIndex);
@@ -678,6 +707,9 @@ function handleKey(e) {
     case "KeyB":
       runCommand({ cmd: "replay" });
       break;
+    case "KeyN":
+      runCommand({ cmd: "skip" });
+      break;
     case "KeyR":
       guarded("reset", "R");
       break;
@@ -728,6 +760,7 @@ function bindEvents() {
   els.btns.answer.addEventListener("click", () => runCommand({ cmd: "answer" }));
   els.btns.hint.addEventListener("click", () => runCommand({ cmd: "hint" }));
   els.btns.replay.addEventListener("click", () => runCommand({ cmd: "replay" }));
+  els.btns.skip.addEventListener("click", () => runCommand({ cmd: "skip" }));
   els.btns.reset.addEventListener("click", () => guarded("reset"));
   els.btns.prev.addEventListener("click", () => guarded("prev"));
   els.btns.next.addEventListener("click", () => guarded("next"));
@@ -817,6 +850,7 @@ function updateUI() {
   els.btns.toggle.textContent = isIdle ? "▶ 開始" : state.isPlaying ? "⏸ 暫停" : "⏯ 播放";
   els.btns.toggle.classList.toggle("btn--disabled", !player || isLocked || state.roundState === RoundState.FINISHED);
   for (const b of ["reveal", "answer", "hint", "replay"]) els.btns[b].classList.toggle("btn--disabled", !isLocked);
+  els.btns.skip.classList.toggle("btn--disabled", !player || isLocked || state.roundState === RoundState.FINISHED);
 
   renderScoreboard();
   updateMood();

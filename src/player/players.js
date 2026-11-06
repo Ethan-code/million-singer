@@ -101,6 +101,11 @@ class YouTubePlayer extends EventTarget {
     this.isPlaying = false;
     this.isMuted = false;
     this.ready = false;
+    this.stalled = false; // 緩衝中：不推算時間
+    this.wantPlaying = false; // 最後下的是播放還是暫停
+    this.seq = 0; // 送出的指令序號
+    this.lastReported = null;
+    this.lastState = null;
 
     this.iframe = document.createElement("iframe");
     this.iframe.className = "yt-frame";
@@ -123,13 +128,21 @@ class YouTubePlayer extends EventTarget {
       this.dispatchEvent(new CustomEvent("error", { detail: { message, code: m.code } }));
       return;
     }
-    // 暫停中只接受「已暫停」的回報，避免剛下 pause 時舊的時間把位置往後推
+    this.ytDuration = m.duration || this.ytDuration;
+    // 中介頁還沒處理到最新指令前的回報是舊狀態（例如剛暫停／跳轉時），忽略
+    if ((m.ack ?? 0) < this.seq) return;
     const playing = m.state === YT_STATE.PLAYING;
-    if (playing || !this.isPlaying || m.state === YT_STATE.PAUSED) {
+    // 剛下暫停時，YouTube 回報的狀態可能還是「播放中」（它的狀態更新比指令慢），忽略
+    if (playing && !this.wantPlaying) return;
+    this.stalled = m.state === YT_STATE.BUFFERING;
+    // 只在時間或狀態真的改變時重設基準；YouTube 回報的時間更新得比 tick 慢，
+    // 每次都重設會讓推算的時間卡住再跳
+    if (m.time !== this.lastReported || m.state !== this.lastState) {
       this.ytTime = m.time;
       this.stamp = performance.now();
     }
-    this.ytDuration = m.duration || this.ytDuration;
+    this.lastReported = m.time;
+    this.lastState = m.state;
     this.rate = m.rate || 1;
 
     if (m.type === "ready" && !this.ready) {
@@ -147,14 +160,17 @@ class YouTubePlayer extends EventTarget {
   }
 
   post(cmd, value) {
-    this.iframe.contentWindow?.postMessage({ cmd, value }, "*");
+    this.seq += 1;
+    this.iframe.contentWindow?.postMessage({ cmd, value, seq: this.seq }, "*");
   }
 
   play() {
+    this.wantPlaying = true;
     this.post("play");
     return Promise.resolve();
   }
   pause() {
+    this.wantPlaying = false;
     // 立即凍結時間，不等 YouTube 回報
     this.ytTime = this.currentTime + this.offset;
     this.stamp = performance.now();
@@ -165,7 +181,7 @@ class YouTubePlayer extends EventTarget {
     }
   }
   get currentTime() {
-    const elapsed = this.isPlaying ? ((performance.now() - this.stamp) / 1000) * this.rate : 0;
+    const elapsed = this.isPlaying && !this.stalled ? ((performance.now() - this.stamp) / 1000) * this.rate : 0;
     return this.ytTime + elapsed - this.offset;
   }
   set currentTime(t) {

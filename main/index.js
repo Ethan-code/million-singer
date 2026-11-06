@@ -24,6 +24,7 @@ const webPreferences = {
 
 let consoleWin = null;
 let stageWin = null;
+let stageInit = null; // 舞台重新載入（Ctrl+R）時重送
 let lastGameState = null;
 
 // ==========================================
@@ -57,6 +58,7 @@ function pickStageDisplay() {
 }
 
 function openStage(init) {
+  stageInit = init;
   if (stageWin) {
     stageWin.webContents.send("game:init", init);
     stageWin.show();
@@ -72,12 +74,16 @@ function openStage(init) {
     webPreferences,
   });
   stageWin.loadFile(path.join(ROOT, "src", "stage", "index.html"));
-  stageWin.webContents.once("did-finish-load", () => {
-    if (external) stageWin.setFullScreen(true);
-    stageWin.webContents.send("game:init", init);
+  let first = true;
+  stageWin.webContents.on("did-finish-load", () => {
+    if (!stageWin) return;
+    if (first && external) stageWin.setFullScreen(true);
+    first = false;
+    stageWin.webContents.send("game:init", stageInit);
   });
   stageWin.on("closed", () => {
     stageWin = null;
+    stageInit = null;
     lastGameState = null;
     consoleWin?.webContents.send("game:ended");
     remoteServer.broadcast({ active: false });

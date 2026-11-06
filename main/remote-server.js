@@ -19,11 +19,24 @@ let port = 0;
 const clients = new Set();
 let handlers = { onCommand: () => {}, getState: () => null };
 
+// 虛擬網卡（docker、VPN 等）排到後面，QR code 用最可能是 Wi-Fi／區網的那個
+const VIRTUAL_IFACE = /^(docker|br-|veth|virbr|vmnet|vboxnet|tailscale|tun|tap|utun|zt|wg|vEthernet)/i;
+
+function addressRank(name, ip) {
+  if (VIRTUAL_IFACE.test(name)) return 9;
+  if (ip.startsWith("192.168.")) return 0;
+  if (ip.startsWith("10.")) return 1;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return 2;
+  return 5;
+}
+
 function lanAddresses() {
-  return Object.values(os.networkInterfaces())
-    .flat()
-    .filter((a) => a && a.family === "IPv4" && !a.internal)
-    .map((a) => a.address);
+  return Object.entries(os.networkInterfaces())
+    .flatMap(([name, list]) =>
+      (list || []).filter((a) => a.family === "IPv4" && !a.internal).map((a) => ({ name, ip: a.address }))
+    )
+    .sort((a, b) => addressRank(a.name, a.ip) - addressRank(b.name, b.ip))
+    .map((a) => a.ip);
 }
 
 function send(res, payload) {

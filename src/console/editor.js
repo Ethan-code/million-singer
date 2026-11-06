@@ -316,11 +316,13 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
   }
 
   let playerKey = "";
+  let playerGen = 0;
   async function ensurePlayer() {
     const src = previewSource();
     const key = sourceKey(src);
     if (key === playerKey) return;
     playerKey = key;
+    const gen = ++playerGen;
     ed.player?.destroy();
     ed.player = null;
     refs.videoBox.classList.toggle("hidden", src?.type !== "youtube");
@@ -328,6 +330,8 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     if (!src) return;
     try {
       const bridgeUrl = src.type === "youtube" ? await ipcRenderer.invoke("bridge:url") : null;
+      // 等待期間音源又換了，或編輯器已關閉
+      if (gen !== playerGen || ed.closed) return;
       const p = createPlayer(src, {
         songsDir: library.songsDir(dataDir),
         videoContainer: refs.videoBox,
@@ -443,8 +447,12 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     try {
       const buf = fs.readFileSync(path.join(library.songsDir(dataDir), forFile));
       const ctx = new AudioContext();
-      const audio = await ctx.decodeAudioData(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-      ctx.close();
+      let audio;
+      try {
+        audio = await ctx.decodeAudioData(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+      } finally {
+        ctx.close();
+      }
       const step = Math.floor(audio.sampleRate / PEAKS_PER_SEC);
       const count = Math.ceil(audio.length / step);
       const peaks = new Float32Array(count);
@@ -894,7 +902,11 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
     }
     try {
       const fresh = library.readPlaylist(dataDir, playlistFile);
-      const list = fresh.error ? songs.slice() : fresh.songs;
+      if (fresh.error) {
+        toast(`題庫檔讀取失敗，為了不覆蓋原本的內容，先不存檔：${fresh.error}\n請先修好 JSON（或從 playlists/.backup/ 還原）`, "error");
+        return false;
+      }
+      const list = fresh.songs;
       if (isNew && ed.savedIndex === undefined) {
         list.push(song);
         ed.savedIndex = list.length - 1;
@@ -934,6 +946,8 @@ function openEditor({ container, dataDir, playlistFile, songs, index, onClose })
   }
 
   function destroy() {
+    ed.closed = true;
+    playerGen++;
     cancelTestStop();
     cancelAnimationFrame(ed.raf);
     clearTimeout(checkTimer);

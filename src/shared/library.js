@@ -25,14 +25,28 @@ function readPlaylist(dataDir, file) {
   }
 }
 
-// 先寫暫存檔再改名，避免寫到一半當掉留下壞檔；舊檔備份到 playlists/.backup/
+const BACKUPS_KEPT = 20;
+
+function backupName(file, date = new Date()) {
+  const stamp = date.toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
+  return `${file.replace(/\.json$/i, "")}.${stamp}.json`;
+}
+
+// 先寫暫存檔再改名，避免寫到一半當掉留下壞檔。
+// 舊檔帶時間備份到 playlists/.backup/，每個題庫保留最近 BACKUPS_KEPT 份。
 function writePlaylist(dataDir, file, songs) {
   const dir = playlistsDir(dataDir);
   const target = path.join(dir, file);
   if (fs.existsSync(target)) {
     const backupDir = path.join(dir, ".backup");
     fs.mkdirSync(backupDir, { recursive: true });
-    fs.copyFileSync(target, path.join(backupDir, `${file}.bak`));
+    fs.copyFileSync(target, path.join(backupDir, backupName(file)));
+    const prefix = file.replace(/\.json$/i, "") + ".";
+    const old = fs
+      .readdirSync(backupDir)
+      .filter((f) => f.startsWith(prefix) && /^\d{8}-\d{6}\.json$/.test(f.slice(prefix.length)))
+      .sort();
+    for (const f of old.slice(0, Math.max(0, old.length - BACKUPS_KEPT))) fs.unlinkSync(path.join(backupDir, f));
   }
   const tmp = `${target}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(songs.map(serializeSong), null, 2) + "\n");

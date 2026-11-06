@@ -102,3 +102,20 @@ test("checkPlaylist", () => {
   assert.ok(msgs.some((m) => m.startsWith("3:warning:") && m.includes("播放範圍外")));
   assert.deepEqual(summarize(issues).errors, 2);
 });
+
+test("writePlaylist keeps timestamped backups", () => {
+  const fs = require("fs");
+  const os = require("os");
+  const path = require("path");
+  const library = require("../src/shared/library");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ms-"));
+  fs.mkdirSync(path.join(dir, "playlists"));
+  const file = library.createPlaylist(dir, "測試");
+  const song = { title: "a", lrc: ["[00:01.00] x"] };
+  library.writePlaylist(dir, file, [song]);
+  const backups = fs.readdirSync(path.join(dir, "playlists", ".backup"));
+  assert.equal(backups.length, 1);
+  assert.match(backups[0], /^測試\.\d{8}-\d{6}\.json$/);
+  assert.equal(library.readPlaylist(dir, file).songs[0].title, "a");
+  fs.rmSync(dir, { recursive: true });
+});

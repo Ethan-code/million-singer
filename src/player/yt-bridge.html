@@ -20,6 +20,9 @@
       const startAt = parseFloat(params.get("start") || "0");
       let player = null;
       let ticker = null;
+      let ready = false;
+      let ack = 0; // 最後處理的指令序號，回報時帶回，讓上層忽略舊狀態
+      const queue = [];
 
       function post(msg) {
         parent.postMessage({ source: "yt-bridge", ...msg }, "*");
@@ -29,6 +32,7 @@
         if (!player || !player.getCurrentTime) return;
         post({
           type,
+          ack,
           time: player.getCurrentTime(),
           state: player.getPlayerState(),
           duration: player.getDuration(),
@@ -55,6 +59,8 @@
               // 讓第一個畫面停在開始時間，但不播放
               if (startAt > 0) player.seekTo(startAt, true);
               player.pauseVideo();
+              ready = true;
+              queue.splice(0).forEach(run);
               snapshot("ready");
               ticker = setInterval(() => snapshot("tick"), 50);
             },
@@ -65,8 +71,13 @@
       }
 
       window.addEventListener("message", (e) => {
-        if (e.source !== parent || !player || !player.playVideo) return;
-        const { cmd, value } = e.data || {};
+        if (e.source !== parent || !e.data || !e.data.cmd) return;
+        if (!ready) queue.push(e.data);
+        else run(e.data);
+      });
+
+      function run({ cmd, value, seq }) {
+        if (seq) ack = seq;
         if (cmd === "play") player.playVideo();
         else if (cmd === "pause") player.pauseVideo();
         else if (cmd === "seek") player.seekTo(value, true);
@@ -74,7 +85,7 @@
         else if (cmd === "unmute") player.unMute();
         else if (cmd === "rate") player.setPlaybackRate(value);
         snapshot("tick");
-      });
+      }
     </script>
     <script src="https://www.youtube.com/iframe_api"></script>
   </body>

@@ -150,7 +150,7 @@ function destroyPlayer() {
 }
 
 function loadSong(index) {
-  if (index < 0 || index >= state.playlist.length) return;
+  if (!Number.isInteger(index) || index < 0 || index >= state.playlist.length) return;
   destroyPlayer();
   clearRoundTimers();
 
@@ -275,9 +275,10 @@ function stopSync() {
   stopTimer = null;
 }
 
-// 遮字句尚未答對前，以停點而非歌詞時間判斷是否已唱到
+// 遮字句一律以停點判斷是否已唱到。揭曉後從停點接續播放，
+// 若改回歌詞時間，前 0.1 秒會被判成上一句，歌詞跳回去、翻牌動畫被打斷。
 function lineStartTime(line) {
-  return line.hasMask && !line.isAnswered ? line.stopAt : line.time;
+  return line.hasMask ? line.stopAt : line.time;
 }
 
 // 下一個要停的點：未答的遮字停點或片段結束，取較早者
